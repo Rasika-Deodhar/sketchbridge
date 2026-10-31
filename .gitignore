@@ -1,0 +1,11 @@
+# Secrets: never commit the real key
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Generated images (demo cache files are added on purpose in step 4)
+cache/*
+!cache/.gitkeep
