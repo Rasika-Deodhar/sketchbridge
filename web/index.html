@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketchbridge</title>
+<style>
+  :root {
+    --bg: #f7f5f0; --card: #ffffff; --ink: #1f1d1a; --muted: #6b665e; --line: #e4dfd5;
+    --accent: #2f6f5e; --accent-ink: #ffffff; --soft: #e8f1ee; --warn: #9a5b13; --warn-soft: #fbf0e1;
+    --bubble: #f1eee8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161513; --card: #201f1c; --ink: #ece8e1; --muted: #a39d93; --line: #35322d;
+      --accent: #6fbfa6; --accent-ink: #10201b; --soft: #1f2e29; --warn: #e3a865; --warn-soft: #33281b;
+      --bubble: #2a2824;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.01em; }
+  .tag { color: var(--muted); margin: 4px 0 20px; }
+  .spend { color: var(--muted); font-size: .9rem; font-variant-numeric: tabular-nums; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+  form.ask { display: grid; grid-template-columns: 2fr 1fr auto; gap: 10px; align-items: end; }
+  label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
+  input[type=text] { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+                     background: var(--bg); color: var(--ink); font: inherit; }
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button { font: inherit; border-radius: 10px; padding: 10px 16px; border: 1px solid var(--accent);
+           background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+  button.ghost { background: transparent; color: var(--accent); }
+  button:disabled { opacity: .5; cursor: progress; }
+  .options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 4px; }
+  .option { text-align: left; background: var(--soft); color: var(--ink); border-color: var(--line); padding: 14px; }
+  .option b { display: block; color: var(--accent); margin-bottom: 4px; text-transform: capitalize; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  .status { padding: 12px 14px; border-radius: 10px; background: var(--soft); margin-bottom: 16px; }
+  .status.error { background: var(--warn-soft); color: var(--warn); }
+  .result { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; }
+  .result img.main { width: 100%; border-radius: 10px; border: 1px solid var(--line); display: block; }
+  .strip { display: flex; gap: 8px; margin-top: 8px; overflow-x: auto; }
+  .strip button { padding: 0; border: 2px solid transparent; background: none; flex: 0 0 auto; }
+  .strip button.on { border-color: var(--accent); }
+  .strip img { width: 84px; height: 56px; object-fit: cover; border-radius: 6px; display: block; }
+  .caption { font-size: .85rem; color: var(--muted); margin-top: 6px; }
+  .badge { display: inline-block; font-size: .8rem; padding: 2px 8px; border-radius: 999px; background: var(--soft); color: var(--accent); }
+  .badge.no { background: var(--warn-soft); color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  td { padding: 6px 4px; border-top: 1px solid var(--line); vertical-align: top; }
+  td:first-child { color: var(--muted); width: 50%; }
+  h2 { font-size: 1.1rem; margin: 0 0 8px; }
+  h3 { font-size: .95rem; margin: 16px 0 6px; }
+  .chat { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; max-height: 340px; overflow-y: auto; }
+  .msg { padding: 8px 12px; border-radius: 12px; max-width: 90%; white-space: pre-wrap; }
+  .msg.user { align-self: flex-end; background: var(--accent); color: var(--accent-ink); }
+  .msg.tutor { align-self: flex-start; background: var(--bubble); }
+  form.follow { display: flex; gap: 8px; }
+  form.follow input { flex: 1; }
+  .quick { display: flex; gap: 8px; flex-wrap: wrap; }
+  [hidden] { display: none !important; }
+  @media (max-width: 720px) {
+    form.ask { grid-template-columns: 1fr; }
+    .options { grid-template-columns: 1fr; }
+    .result { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Sketchbridge</h1>
+    <span class="spend" id="spend">Spent this visit: $0.0000</span>
+  </header>
+  <p class="tag">Ask about a hard idea. Pick a picture analogy. Ask follow-ups until it clicks.</p>
+
+  <section class="card">
+    <form class="ask" id="askForm">
+      <div>
+        <label for="concept">What do you want to understand?</label>
+        <input type="text" id="concept" placeholder="What is backpropagation?" required maxlength="200">
+      </div>
+      <div>
+        <label for="interest">Domain (optional)</label>
+        <input type="text" id="interest" placeholder="Restaurant" maxlength="100">
+      </div>
+      <button type="submit" id="askBtn">Show analogies</button>
+    </form>
+  </section>
+
+  <div class="status" id="status" hidden></div>
+
+  <section class="card" id="optionsCard" hidden>
+    <h2>Pick an analogy</h2>
+    <div class="options" id="options"></div>
+    <div class="row">
+      <span class="muted" id="roundsLeft"></span>
+      <button class="ghost" id="anotherBtn" type="button">Try another</button>
+    </div>
+  </section>
+
+  <section class="card" id="resultCard" hidden>
+    <div class="result">
+      <div>
+        <img class="main" id="mainImg" alt="">
+        <div class="caption" id="imgCaption"></div>
+        <div class="strip" id="strip"></div>
+      </div>
+      <div>
+        <h2 id="resultTitle"></h2>
+        <p id="analogy"></p>
+        <span class="badge" id="checkBadge"></span>
+        <span class="muted" id="attempts"></span>
+        <h3>What maps to what</h3>
+        <table id="mapping"></table>
+      </div>
+    </div>
+
+    <h3>Still unclear? Ask anything</h3>
+    <div class="chat" id="chat"></div>
+    <div class="quick">
+      <button class="ghost" type="button" data-action="simplify">I don't get it, simplify</button>
+      <button class="ghost" type="button" data-action="next_scene">Show the next scene</button>
+    </div>
+    <form class="follow" id="followForm" style="margin-top:10px">
+      <input type="text" id="followInput" maxlength="500"
+             placeholder="e.g. why do the arrows go backwards? or: make the chef a robot">
+      <button type="submit">Send</button>
+    </form>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const state = {
+  concept: "", interest: "", shownDomains: [], spend: 0,
+  analogy: "", mapping: [], imageId: null, images: [], shownParts: [], history: [],
+};
+
+function setStatus(text, isError = false) {
+  const el = $("status");
+  el.hidden = !text;
+  el.textContent = text || "";
+  el.classList.toggle("error", isError);
+}
+
+function addSpend(cost) {
+  state.spend += cost || 0;
+  $("spend").textContent = `Spent this visit: $${state.spend.toFixed(4)}`;
+}
+
+function setBusy(busy) {
+  document.querySelectorAll("button, input").forEach((el) => (el.disabled = busy));
+}
+
+async function post(path, body) {
+  const res = await fetch(path, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail ? JSON.stringify(data.detail).replace(/^"|"$/g, "") : `HTTP ${res.status}`);
+  return data;
+}
+
+// ---- Step 0: options -------------------------------------------------------
+async function loadOptions() {
+  setBusy(true);
+  setStatus("Thinking of analogies…");
+  try {
+    const data = await post("/options", {
+      concept: state.concept, interest: state.interest || null, avoid_domains: state.shownDomains,
+    });
+    addSpend(data.cost_usd);
+    state.shownDomains.push(...data.options.map((o) => o.domain));
+    renderOptions(data.options, data.rounds_left);
+    setStatus("");
+  } catch (err) {
+    setStatus(err.message, true);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function renderOptions(options, roundsLeft) {
+  const box = $("options");
+  box.replaceChildren();
+  for (const opt of options) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "option";
+    const t = document.createElement("b");
+    t.textContent = opt.domain;
+    b.append(t, document.createTextNode(opt.one_line));
+    b.addEventListener("click", () => explain(opt));
+    box.append(b);
+  }
+  $("optionsCard").hidden = false;
+  $("roundsLeft").textContent = `${roundsLeft} more "Try another" left`;
+  $("anotherBtn").hidden = roundsLeft <= 0;
+}
+
+// ---- Steps 1 to 3: analogy, draw, check ------------------------------------
+async function explain(option) {
+  setBusy(true);
+  setStatus(`Drawing "${option.domain}" and checking it… this usually takes 30 to 60 seconds.`);
+  try {
+    const r = await post("/explain", { concept: state.concept, option });
+    addSpend(r.cost_usd);
+    Object.assign(state, {
+      analogy: r.analogy, mapping: r.mapping, imageId: r.image_id,
+      images: [{ id: r.image_id, label: "First picture" }], shownParts: [], history: [],
+    });
+    $("resultTitle").textContent = `${state.concept} — ${option.domain}`;
+    $("analogy").textContent = r.analogy;
+    const passed = r.check && r.check.pass;
+    $("checkBadge").textContent = passed ? "Self-check passed" : "Self-check: not perfect";
+    $("checkBadge").classList.toggle("no", !passed);
+    $("attempts").textContent = ` · ${r.attempts} drawing${r.attempts > 1 ? "s" : ""} · $${r.cost_usd.toFixed(4)}`;
+    renderMapping();
+    renderImages();
+    $("chat").replaceChildren();
+    $("resultCard").hidden = false;
+    $("resultCard").scrollIntoView({ behavior: "smooth" });
+    setStatus("");
+  } catch (err) {
+    setStatus(err.message, true);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function renderMapping() {
+  const table = $("mapping");
+  table.replaceChildren();
+  for (const m of state.mapping) {
+    const tr = document.createElement("tr");
+    const a = document.createElement("td");
+    const b = document.createElement("td");
+    a.textContent = m.concept_part;
+    b.textContent = m.analogy_part;
+    tr.append(a, b);
+    table.append(tr);
+  }
+}
+
+function renderImages() {
+  const current = state.images.find((i) => i.id === state.imageId) || state.images[0];
+  $("mainImg").src = `/image/${encodeURIComponent(current.id)}`;
+  $("mainImg").alt = `Analogy picture: ${current.label}`;
+  $("imgCaption").textContent = current.label;
+  const strip = $("strip");
+  strip.replaceChildren();
+  if (state.images.length < 2) return;
+  for (const img of state.images) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = img.id === state.imageId ? "on" : "";
+    b.title = img.label;
+    const el = document.createElement("img");
+    el.src = `/image/${encodeURIComponent(img.id)}`;
+    el.alt = img.label;
+    b.append(el);
+    b.addEventListener("click", () => { state.imageId = img.id; renderImages(); });
+    strip.append(b);
+  }
+}
+
+// ---- Follow-ups: answer, simplify, edit, next scene ------------------------
+function addMsg(role, text) {
+  const div = document.createElement("div");
+  div.className = `msg ${role}`;
+  div.textContent = text;
+  $("chat").append(div);
+  $("chat").scrollTop = $("chat").scrollHeight;
+  state.history.push({ role, text });
+}
+
+async function followup(message, action = null) {
+  addMsg("user", message);
+  setBusy(true);
+  setStatus("Working on it… if a new picture is needed this takes up to a minute.");
+  try {
+    const r = await post("/followup", {
+      concept: state.concept, analogy: state.analogy, mapping: state.mapping,
+      image_id: state.imageId, message, action,
+      shown_parts: state.shownParts, history: state.history.slice(-7, -1),
+    });
+    addSpend(r.cost_usd);
+    if (r.action === "simplify" && r.new_analogy) {
+      state.analogy = r.new_analogy;
+      $("analogy").textContent = r.new_analogy;
+    }
+    if (r.focus_part) state.shownParts.push(r.focus_part);
+    if (r.image_id) {
+      const labels = { simplify: "Simpler picture", edit: "Edited picture", next_scene: `Close-up: ${r.focus_part}` };
+      state.images.push({ id: r.image_id, label: labels[r.action] || "New picture" });
+      state.imageId = r.image_id;
+      renderImages();
+    }
+    addMsg("tutor", r.reply || "(done)");
+    setStatus("");
+  } catch (err) {
+    setStatus(err.message, true);
+  } finally {
+    setBusy(false);
+  }
+}
+
+// ---- Wiring ----------------------------------------------------------------
+$("askForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  state.concept = $("concept").value.trim();
+  state.interest = $("interest").value.trim();
+  state.shownDomains = [];
+  $("resultCard").hidden = true;
+  if (state.concept) loadOptions();
+});
+$("anotherBtn").addEventListener("click", loadOptions);
+document.querySelectorAll("[data-action]").forEach((b) =>
+  b.addEventListener("click", () => followup(b.textContent, b.dataset.action)));
+$("followForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = $("followInput").value.trim();
+  if (!text) return;
+  $("followInput").value = "";
+  followup(text);
+});
+</script>
+</body>
+</html>

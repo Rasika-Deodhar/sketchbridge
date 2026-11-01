@@ -25,3 +25,17 @@
     parts are visible. Time and repetition can't be shown in one still picture.
 16. **`META_API_KEY` is optional in code.** In a cloud session the key can be a network secret that the
     proxy adds to requests, so the key never reaches the app at all.
+17. **Domain field drives the options.** If the learner gives a domain (e.g. "Restaurant"), all 3 options
+    are set in that world, each with a different scene. With no domain, the 3 options come from different
+    everyday domains. This follows the user's design, and differs from the original brief.
+18. **One follow-up box, the model picks the action.** Learners say things like "I don't understand"
+    instead of pressing the right button, so Muse Spark routes the message to answer / simplify / edit /
+    next_scene. Two quick buttons force simplify or next_scene.
+19. **Follow-up pictures use the current picture as a reference** (`input_image`, from the cookbook), so a
+    series keeps the same style and characters. Follow-up pictures are not self-checked, to save cost.
+20. **Simplify must keep the core idea.** The first live test lost "go backwards", so the prompt now says
+    to drop details, never the key mechanism.
+21. **Stateless server.** The browser sends the conversation state with each follow-up. There are no
+    sessions to store or expire. Inputs are length-limited with pydantic, and image ids must match
+    `^[a-z0-9-]+\.(webp|png|jpg)$`, so no path tricks.
+22. **Follow-ups are capped at 15 per concept** (each makes at most 1 picture).

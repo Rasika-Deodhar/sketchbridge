@@ -180,10 +180,24 @@ def chat_with_image(
     return _chat(content, schema, schema_name)
 
 
-def draw(prompt: str, out_path_without_ext: str) -> Reply:
-    """Draw one picture with Muse Image and save it. Costs one image call."""
+def draw(prompt: str, out_path_without_ext: str, reference_image: str | None = None) -> Reply:
+    """Draw one picture with Muse Image and save it. Costs one image call.
+
+    `reference_image`: a local image to edit or keep consistent with. It is sent
+    as an `input_image` part inside a user message, as the cookbook shows.
+    """
+    if reference_image:
+        model_input = [{
+            "role": "user",
+            "content": [
+                {"type": "input_text", "text": prompt},
+                {"type": "input_image", "image_url": _image_data_url(reference_image)},
+            ],
+        }]
+    else:
+        model_input = prompt
     # store=False: we do not need the server to remember this conversation.
-    data = _post("/responses", {"model": IMAGE_MODEL, "input": prompt, "store": False})
+    data = _post("/responses", {"model": IMAGE_MODEL, "input": model_input, "store": False})
     b64 = next(
         (item.get("result") for item in data.get("output", [])
          if item.get("type") == "image_generation_call" and item.get("result")),

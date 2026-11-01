@@ -26,3 +26,29 @@ command line    ────────▶  app/run.py  ───────�
 | 3 Check | Muse Spark 1.3 (vision) | image, `mapping` | `pass`, `fixes`; if it fails, redraw once |
 
 Hard limit: at most 2 images per request.
+
+## Follow-ups (after the first picture)
+
+The learner types anything, or presses a quick button. One Muse Spark call looks at the
+current picture plus the message and picks an action:
+
+| Action | Trigger example | What happens | Images |
+| --- | --- | --- | --- |
+| answer | "why do the arrows go backwards?" | text answer that points at the picture | 0 |
+| simplify | "I don't get it, simplify" | simpler text (keeps the core idea) + simpler picture | 1 |
+| edit | "make the chef a robot" | the current picture is edited | 1 |
+| next_scene | "show the next scene" | close-up of one mapping part not shown yet; builds a series | 1 |
+
+New pictures send the current picture as a reference (`input_image`), so style and characters stay
+the same across the series. The browser keeps the conversation state (analogy, mapping, current
+image, shown parts, last messages) and sends it with each follow-up, so the server stores nothing.
+
+## Web routes (app/main.py)
+
+| Route | Does |
+| --- | --- |
+| `GET /` | serves `web/index.html` |
+| `POST /options` | step 0 |
+| `POST /explain` | steps 1 to 3 |
+| `POST /followup` | answer / simplify / edit / next_scene |
+| `GET /image/{id}` | a picture from `cache/` (name checked against a strict pattern) |
