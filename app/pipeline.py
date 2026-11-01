@@ -159,7 +159,7 @@ Give exactly 3 analogy options.
 Each analogy must be accurate: its parts must match how the concept really works.
 For each option give:
 - id: "1", "2" or "3"
-- domain: 2 to 4 words, e.g. "making soup"
+- domain: 2 to 4 words naming the specific scene, e.g. "fixing salty soup" (never just the domain name)
 - one_line: one plain sentence saying how the concept is like this."""
 
     reply = mc.chat(prompt, schema=OPTIONS_SCHEMA, schema_name="options")

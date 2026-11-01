@@ -63,6 +63,10 @@
   form.follow { display: flex; gap: 8px; }
   form.follow input { flex: 1; }
   .quick { display: flex; gap: 8px; flex-wrap: wrap; }
+  .demos { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+  .demos button { padding: 6px 12px; font-size: .88rem; border-radius: 999px; }
+  .option.cached { position: relative; }
+  .option.cached::after { content: "instant"; position: absolute; top: 8px; right: 10px; font-size: .72rem; color: var(--muted); }
   [hidden] { display: none !important; }
   @media (max-width: 720px) {
     form.ask { grid-template-columns: 1fr; }
@@ -91,6 +95,7 @@
       </div>
       <button type="submit" id="askBtn">Show analogies</button>
     </form>
+    <div class="demos" id="demos" hidden><span class="muted">Ready-made examples:</span></div>
   </section>
 
   <div class="status" id="status" hidden></div>
@@ -138,7 +143,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const state = {
-  concept: "", interest: "", shownDomains: [], spend: 0,
+  concept: "", interest: "", shownDomains: [], spend: 0, demo: null,
   analogy: "", mapping: [], imageId: null, images: [], shownParts: [], history: [],
 };
 
@@ -186,17 +191,18 @@ async function loadOptions() {
   }
 }
 
-function renderOptions(options, roundsLeft) {
+function renderOptions(options, roundsLeft, demo = null) {
   const box = $("options");
   box.replaceChildren();
   for (const opt of options) {
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "option";
+    const cached = demo && demo.chosen.domain === opt.domain;
+    b.className = cached ? "option cached" : "option";
     const t = document.createElement("b");
     t.textContent = opt.domain;
     b.append(t, document.createTextNode(opt.one_line));
-    b.addEventListener("click", () => explain(opt));
+    b.addEventListener("click", () => cached ? showResult(demo.result, opt) : explain(opt));
     box.append(b);
   }
   $("optionsCard").hidden = false;
@@ -211,6 +217,16 @@ async function explain(option) {
   try {
     const r = await post("/explain", { concept: state.concept, option });
     addSpend(r.cost_usd);
+    showResult(r, option);
+    setStatus("");
+  } catch (err) {
+    setStatus(err.message, true);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function showResult(r, option) {
     Object.assign(state, {
       analogy: r.analogy, mapping: r.mapping, imageId: r.image_id,
       images: [{ id: r.image_id, label: "First picture" }], shownParts: [], history: [],
@@ -226,12 +242,6 @@ async function explain(option) {
     $("chat").replaceChildren();
     $("resultCard").hidden = false;
     $("resultCard").scrollIntoView({ behavior: "smooth" });
-    setStatus("");
-  } catch (err) {
-    setStatus(err.message, true);
-  } finally {
-    setBusy(false);
-  }
 }
 
 function renderMapping() {
@@ -280,8 +290,30 @@ function addMsg(role, text) {
   state.history.push({ role, text });
 }
 
+function applyFollowup(r) {
+  if (r.action === "simplify" && r.new_analogy) {
+    state.analogy = r.new_analogy;
+    $("analogy").textContent = r.new_analogy;
+  }
+  if (r.focus_part) state.shownParts.push(r.focus_part);
+  if (r.image_id) {
+    const labels = { simplify: "Simpler picture", edit: "Edited picture", next_scene: `Close-up: ${r.focus_part}` };
+    state.images.push({ id: r.image_id, label: labels[r.action] || "New picture" });
+    state.imageId = r.image_id;
+    renderImages();
+  }
+  addMsg("tutor", r.reply || "(done)");
+}
+
 async function followup(message, action = null) {
   addMsg("user", message);
+  // Demo shortcut: the saved "simplify" answer for a demo's first picture.
+  const d = state.demo;
+  if (d && action === "simplify" && d.simplify && state.imageId === d.result.image_id
+      && !state.images.some((i) => i.id === d.simplify.image_id)) {
+    applyFollowup(d.simplify);
+    return;
+  }
   setBusy(true);
   setStatus("Working on it… if a new picture is needed this takes up to a minute.");
   try {
@@ -291,18 +323,7 @@ async function followup(message, action = null) {
       shown_parts: state.shownParts, history: state.history.slice(-7, -1),
     });
     addSpend(r.cost_usd);
-    if (r.action === "simplify" && r.new_analogy) {
-      state.analogy = r.new_analogy;
-      $("analogy").textContent = r.new_analogy;
-    }
-    if (r.focus_part) state.shownParts.push(r.focus_part);
-    if (r.image_id) {
-      const labels = { simplify: "Simpler picture", edit: "Edited picture", next_scene: `Close-up: ${r.focus_part}` };
-      state.images.push({ id: r.image_id, label: labels[r.action] || "New picture" });
-      state.imageId = r.image_id;
-      renderImages();
-    }
-    addMsg("tutor", r.reply || "(done)");
+    applyFollowup(r);
     setStatus("");
   } catch (err) {
     setStatus(err.message, true);
@@ -311,9 +332,36 @@ async function followup(message, action = null) {
   }
 }
 
+// ---- Demo examples (pre-built by `python -m app.build_demo`) ----------------
+function openDemo(d) {
+  state.demo = d;
+  state.concept = d.concept;
+  state.interest = d.interest;
+  state.shownDomains = d.options.map((o) => o.domain);
+  $("concept").value = d.concept;
+  $("interest").value = d.interest;
+  setStatus("");
+  renderOptions(d.options, 5, d);
+  showResult(d.result, d.chosen);
+}
+
+fetch("/demos").then((r) => r.json()).then((list) => {
+  if (!list.length) return;
+  for (const d of list) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ghost";
+    b.textContent = `${d.concept} · ${d.interest}`;
+    b.addEventListener("click", () => openDemo(d));
+    $("demos").append(b);
+  }
+  $("demos").hidden = false;
+}).catch(() => {});
+
 // ---- Wiring ----------------------------------------------------------------
 $("askForm").addEventListener("submit", (e) => {
   e.preventDefault();
+  state.demo = null;
   state.concept = $("concept").value.trim();
   state.interest = $("interest").value.trim();
   state.shownDomains = [];

@@ -6,6 +6,8 @@ __pycache__/
 *.pyc
 .venv/
 
-# Generated images (demo cache files are added on purpose in step 4)
+# Generated images are ignored, except the demo cache built in step 4
 cache/*
 !cache/.gitkeep
+!cache/demos.json
+!cache/demo-*.webp

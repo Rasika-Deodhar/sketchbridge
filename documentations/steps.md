@@ -44,3 +44,25 @@
   backwards?" (text answer, $0.009). Total about $0.08.
 - Fixed after the test: simplify had dropped the core "go backwards" idea, and the next scene copied
   the previous picture too closely. Both prompts were tightened; simplify was re-tested and now keeps the idea.
+
+## Step 4: Demo cache (build_demo.py, cache/demos.json)
+
+- `app/build_demo.py` runs 5 concepts through options -> explain (option 1) -> one "simplify" follow-up,
+  renames the pictures to `cache/demo-<slug>.webp` / `-simple.webp`, and writes `cache/demos.json`.
+  `--only <slug>` rebuilds one demo; `--force` rebuilds all.
+- The 5 demos (all passed the self-check):
+
+| Concept | Domain | Picked analogy | Drawings |
+| --- | --- | --- | --- |
+| What is backpropagation? | Restaurant | fixing salty soup | 1 |
+| What is a hash table? | Library | Library card catalog | 2 |
+| How does compound interest work? | Gardening | growing tomato plants | 1 |
+| What is photosynthesis? | Factory | solar panel factory | 1 |
+| How does a vaccine train the immune system? | Security team | building fire drill | 1 |
+
+- Cost: $0.31 for the first build, plus $0.05 to rebuild the vaccine demo after fixing option names
+  (they had all come back as just "Security team"; the prompt now asks for a specific scene name).
+- Web: `GET /demos` serves the manifest. The page shows the 5 as "Ready-made examples". Clicking one loads
+  its options and result instantly; the cached option is marked "instant", and "I don't get it, simplify"
+  on the first picture uses the saved answer. Everything else (other options, other follow-ups) goes live.
+- Browser test: all 5 demos plus a cached simplify made zero API calls.

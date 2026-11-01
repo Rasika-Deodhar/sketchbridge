@@ -39,3 +39,7 @@
     sessions to store or expire. Inputs are length-limited with pydantic, and image ids must match
     `^[a-z0-9-]+\.(webp|png|jpg)$`, so no path tricks.
 22. **Follow-ups are capped at 15 per concept** (each makes at most 1 picture).
+23. **Demo files are committed** (`cache/demos.json`, `cache/demo-*.webp`, about 3.7 MB), so a fresh clone
+    can show the demo with no key and no waiting. Other generated pictures stay git-ignored.
+24. **Demos store one follow-up (simplify)**, because "I don't understand" is the main moment in the demo
+    story. Other follow-ups on a demo still run live.

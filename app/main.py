@@ -8,10 +8,12 @@ Routes:
     POST /explain           concept, option   -> analogy, mapping, checked image
     POST /followup          a question or request about the current picture
     GET  /image/{image_id}  a saved picture from cache/
+    GET  /demos             the 5 pre-built demo concepts (instant, no API calls)
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -132,3 +134,10 @@ def image(image_id: str):
         return FileResponse(pipeline.image_file(image_id))
     except ValueError as exc:
         raise HTTPException(404, str(exc)) from exc
+
+
+@app.get("/demos")
+def demos():
+    """Pre-built results from `python -m app.build_demo` (empty list if not built)."""
+    manifest = pipeline.CACHE_DIR / "demos.json"
+    return json.loads(manifest.read_text()) if manifest.exists() else []
