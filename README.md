@@ -1,18 +1,129 @@
 # Sketchbridge
 
-Explain a concept with a picture analogy, drawn and checked by Meta's hosted models.
+Explain a hard idea with a picture analogy. Ask a question ("What is backpropagation?"), pick a world
+you know ("Restaurant"), choose one of 3 analogies, and Sketchbridge writes it, draws it, and checks
+its own drawing. Still confused? Say "I don't get it" and it simplifies, edits the picture, or draws the
+next scene.
 
-Work in progress. See [documentations/](documentations/).
+Everything runs on **Meta's hosted models** through Meta Model API. Nothing runs locally: no model
+downloads, no GPU, no training.
 
-```bash
-python3.11 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp .env.example .env   # then put your key after META_API_KEY=
-.venv/bin/python -m app.smoke_test                              # step 1: check the API works
-.venv/bin/python -m app.run "backpropagation" --interest "cooking"  # step 2: full pipeline
-.venv/bin/uvicorn app.main:app                                  # step 3: web app at http://127.0.0.1:8000
-.venv/bin/python -m app.build_demo                              # step 4: (re)build the 5 cached demos
+## How it works
+
+```
+question + domain ──▶ 3 analogy options ──▶ you pick one
+                                              │
+              analogy + mapping + image prompt (Muse Spark)
+                                              │
+                      draw the picture (Muse Image)
+                                              │
+        check the picture against the mapping (Muse Spark, vision)
+                    passes? done : redraw once with fixes
+                                              │
+   follow-ups: answer · simplify · edit picture · next scene (Muse Spark decides)
 ```
 
-The 5 demo examples are already in `cache/`, so the web app shows them instantly even without a key.
+More detail is in [documentations/](documentations/): architecture, API facts, every decision, and a build log.
 
-On Windows use `.venv\Scripts\python` instead of `.venv/bin/python`.
+## Run it
+
+You need Python 3.10 or newer (built and tested on 3.11) and a Meta Model API key from
+[dev.meta.ai](https://dev.meta.ai/).
+
+macOS / Linux:
+
+```bash
+python3.11 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env          # then put your key after META_API_KEY=
+.venv/bin/uvicorn app.main:app
+```
+
+Windows (PowerShell):
+
+```bash
+py -3.11 -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+copy .env.example .env        # then put your key after META_API_KEY=
+.venv\Scripts\uvicorn app.main:app
+```
+
+Open http://127.0.0.1:8000. The 5 **ready-made examples** load instantly from `cache/`, even without a key.
+
+Other commands (use `.venv\Scripts\python` on Windows):
+
+| Command | What it does |
+| --- | --- |
+| `.venv/bin/python -m app.smoke_test` | Calls each Meta function once to check your key works (about $0.015) |
+| `.venv/bin/python -m app.run "backpropagation" --interest "cooking"` | The whole pipeline in the terminal |
+| `.venv/bin/python -m app.build_demo` | Rebuilds any missing demo (`--only vaccine` for one, `--force` for all) |
+
+## Cost
+
+Each request prints its estimated cost; the page shows a running total.
+
+| Action | Typical cost |
+| --- | --- |
+| 3 options | about $0.008 |
+| Analogy + picture + check | about $0.025 (about $0.05 if it redraws) |
+| Follow-up: answer | about $0.009 |
+| Follow-up: simplify / edit / next scene | about $0.02 |
+| Voice question (a few seconds) | about $0.0002 |
+
+Guards: at most 2 images per request, 5 "Try another" rounds per concept, and 15 follow-ups per concept.
+
+## Built during the hackathon
+
+Everything in this repository was built new during the hackathon, **October 26 to November 4, 2026**
+(commits from October 31 to November 1, 2026).
+
+### Models used (all Meta-hosted, via Meta Model API)
+
+| Model | ID | Used for | Price |
+| --- | --- | --- | --- |
+| Muse Spark 1.3 | `muse-spark-1.3` | options, analogy, image prompt, picture check, follow-ups | $1.25 in / $0.15 cached in / $4.25 out per 1M tokens |
+| Muse Image 1.0 | `muse-image-1.0` | drawing and editing pictures | $0.01 per image |
+| Muse Voice Transcribe | `muse-voice-transcribe-1.0` | voice questions | $0.18 per hour of audio |
+
+No Contributor variants, open-weight models, or local models were used.
+
+### Files
+
+| File | What it is |
+| --- | --- |
+| `README.md` | This file |
+| `.env.example` | Template for the key: `META_API_KEY=` |
+| `.gitignore` | Keeps `.env`, the virtual environment, and non-demo pictures out of git |
+| `requirements.txt` | `fastapi`, `uvicorn`, `httpx` |
+| `app/__init__.py` | Marks `app` as a Python package |
+| `app/meta_client.py` | The only file that talks to Meta: `chat`, `chat_with_image`, `draw`, `transcribe`, with cost estimates |
+| `app/pipeline.py` | Plain functions: options, analogy, draw, check, redraw once, follow-ups, and the cost guards |
+| `app/run.py` | Command line: pick 1, 2, 3 or "a" for another set |
+| `app/smoke_test.py` | Step 1 check that the key and each API call work |
+| `app/main.py` | FastAPI server: `/options`, `/explain`, `/followup`, `/transcribe`, `/image/{id}`, `/demos` |
+| `app/build_demo.py` | Builds the 5 cached demos |
+| `web/index.html` | The one-page app (no framework): question, domain, mic button, options, result card, follow-up chat |
+| `cache/.gitkeep` | Keeps the `cache/` folder in git |
+| `cache/demos.json` | The 5 demos: options, analogy, mapping, check result, and a saved "simplify" answer |
+| `cache/demo-backpropagation.webp`, `cache/demo-backpropagation-simple.webp` | Backpropagation / Restaurant: picture and simpler picture |
+| `cache/demo-hash-table.webp`, `cache/demo-hash-table-simple.webp` | Hash table / Library |
+| `cache/demo-compound-interest.webp`, `cache/demo-compound-interest-simple.webp` | Compound interest / Gardening |
+| `cache/demo-photosynthesis.webp`, `cache/demo-photosynthesis-simple.webp` | Photosynthesis / Factory |
+| `cache/demo-vaccine.webp`, `cache/demo-vaccine-simple.webp` | Vaccines / Security team |
+| `documentations/README.md` | Index of the docs |
+| `documentations/architecture.md` | Layers, pipeline, follow-up actions, web routes |
+| `documentations/meta-api.md` | Exact API details used, and where they came from |
+| `documentations/decisions.md` | Every design decision and why |
+| `documentations/steps.md` | Build log: what each step added, how it was tested, what it cost |
+
+### Build steps
+
+1. Meta client and smoke test
+2. Pipeline on the command line
+3. Web page, plus follow-ups (simplify, edit, next scene, ask)
+4. Demo cache of 5 tested concepts
+5. Voice questions with Muse Voice Transcribe
+6. This README
+
+API details came from Meta's official cookbook
+([meta-models/meta-model-cookbook](https://github.com/meta-models/meta-model-cookbook)).

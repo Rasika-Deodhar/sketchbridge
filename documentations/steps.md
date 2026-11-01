@@ -79,3 +79,10 @@
 - Tests: a synthetic "What is backpropagation?" clip (made with espeak-ng in the build container only)
   came back as "What is back propagation?" ($0.0001 for 2 s). End to end in Chromium with a fake
   microphone: the box filled correctly, $0.0002. A non-WAV upload returns HTTP 400.
+
+## Step 6: README
+
+- Rewrote `README.md`: what Sketchbridge does, a flow diagram, setup for macOS/Linux and Windows,
+  all commands, typical costs, and a "Built during the hackathon" section listing every file,
+  the 3 Meta models (with IDs and prices), and the dates: October 26 to November 4, 2026
+  (commits from October 31 to November 1, 2026).
