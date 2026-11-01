@@ -1,0 +1,143 @@
+"""Sketchbridge web server.
+
+    uvicorn app.main:app --reload        then open http://127.0.0.1:8000
+
+Routes:
+    GET  /                  the web page (web/index.html)
+    POST /options           concept, interest -> 3 analogy options
+    POST /explain           concept, option   -> analogy, mapping, checked image
+    POST /followup          a question or request about the current picture
+    GET  /image/{image_id}  a saved picture from cache/
+    GET  /demos             the 5 pre-built demo concepts (instant, no API calls)
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
+
+from app import meta_client as mc
+from app import pipeline
+
+WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+
+app = FastAPI(title="Sketchbridge")
+
+
+# ------------------------------------------------------------ request shapes
+
+
+class OptionsIn(BaseModel):
+    concept: str = Field(min_length=1, max_length=200)
+    interest: str | None = Field(default=None, max_length=100)
+    avoid_domains: list[str] = Field(default_factory=list, max_length=20)
+
+
+class Option(BaseModel):
+    id: str = Field(max_length=4)
+    domain: str = Field(max_length=100)
+    one_line: str = Field(max_length=500)
+
+
+class ExplainIn(BaseModel):
+    concept: str = Field(min_length=1, max_length=200)
+    option: Option
+
+
+class MappingPair(BaseModel):
+    concept_part: str = Field(max_length=300)
+    analogy_part: str = Field(max_length=300)
+
+
+class Turn(BaseModel):
+    role: str = Field(max_length=20)
+    text: str = Field(max_length=2000)
+
+
+class FollowupIn(BaseModel):
+    concept: str = Field(min_length=1, max_length=200)
+    analogy: str = Field(max_length=3000)
+    mapping: list[MappingPair] = Field(max_length=10)
+    image_id: str = Field(max_length=100)
+    message: str = Field(default="", max_length=500)
+    action: str | None = None
+    shown_parts: list[str] = Field(default_factory=list, max_length=20)
+    history: list[Turn] = Field(default_factory=list, max_length=20)
+
+
+# ------------------------------------------------------------ helpers
+
+
+def _run(label: str, fn):
+    """Call the pipeline, print the estimated cost, and turn errors into HTTP errors."""
+    try:
+        result = fn()
+    except pipeline.LimitError as exc:
+        raise HTTPException(429, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except mc.MetaError as exc:
+        print(f"[{label}] Meta error: {exc}")
+        raise HTTPException(502, f"Meta Model API error: {exc}") from exc
+    print(f"[{label}] estimated cost ${result.get('cost_usd', 0):.4f}")
+    return result
+
+
+def _public(result: dict) -> dict:
+    """Drop local file paths before sending a result to the browser."""
+    return {k: v for k, v in result.items() if k != "image_path"}
+
+
+# ------------------------------------------------------------ routes
+
+
+@app.get("/")
+def index():
+    return FileResponse(WEB_DIR / "index.html")
+
+
+@app.post("/options")
+def options(body: OptionsIn):
+    def go():
+        opts, cost = pipeline.get_options(body.concept, body.interest, body.avoid_domains)
+        return {"options": opts, "cost_usd": round(cost, 4),
+                "rounds_left": pipeline.option_rounds_left(body.concept)}
+    return _run("options", go)
+
+
+@app.post("/explain")
+def explain(body: ExplainIn):
+    return _public(_run("explain", lambda: pipeline.explain(body.concept, body.option.model_dump())))
+
+
+@app.post("/followup")
+def followup(body: FollowupIn):
+    return _public(_run("followup", lambda: pipeline.followup(
+        concept=body.concept,
+        analogy=body.analogy,
+        mapping=[m.model_dump() for m in body.mapping],
+        image_id=body.image_id,
+        message=body.message,
+        action=body.action,
+        shown_parts=body.shown_parts,
+        history=[t.model_dump() for t in body.history],
+    )))
+
+
+@app.get("/image/{image_id}")
+def image(image_id: str):
+    try:
+        return FileResponse(pipeline.image_file(image_id))
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@app.get("/demos")
+def demos():
+    """Pre-built results from `python -m app.build_demo` (empty list if not built)."""
+    manifest = pipeline.CACHE_DIR / "demos.json"
+    return json.loads(manifest.read_text()) if manifest.exists() else []

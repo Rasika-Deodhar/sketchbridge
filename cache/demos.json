@@ -1,0 +1,383 @@
+[
+  {
+    "slug": "backpropagation",
+    "concept": "What is backpropagation?",
+    "interest": "Restaurant",
+    "options": [
+      {
+        "domain": "fixing salty soup",
+        "id": "1",
+        "one_line": "Backpropagation is like tasting the final soup, measuring how far off the flavor is, then walking backward down the prep line to tell each cook how much to adjust based on their share of the mistake."
+      },
+      {
+        "domain": "handling customer complaint",
+        "id": "2",
+        "one_line": "Backpropagation is like getting a complaint about the finished plate and tracing the error backward from plating to cooking to prep so each station fixes its part of the fault."
+      },
+      {
+        "domain": "training rookie chefs",
+        "id": "3",
+        "one_line": "Backpropagation is like scoring rookie chefs on the final dinner service and then rewinding step by step to update each earlier technique that caused the final error."
+      }
+    ],
+    "chosen": {
+      "domain": "fixing salty soup",
+      "id": "1",
+      "one_line": "Backpropagation is like tasting the final soup, measuring how far off the flavor is, then walking backward down the prep line to tell each cook how much to adjust based on their share of the mistake."
+    },
+    "result": {
+      "concept": "What is backpropagation?",
+      "option": {
+        "domain": "fixing salty soup",
+        "id": "1",
+        "one_line": "Backpropagation is like tasting the final soup, measuring how far off the flavor is, then walking backward down the prep line to tell each cook how much to adjust based on their share of the mistake."
+      },
+      "analogy": "Imagine three cooks making soup in a line, one after another. At the end, the head chef tastes the finished bowl and finds it way too salty. She measures how far off the flavor is, then walks backward down the line to each cook. Each cook learns how much their step added to the saltiness and adjusts a little, so the next pot tastes better.",
+      "mapping": [
+        {
+          "analogy_part": "The finished bowl of soup",
+          "concept_part": "The neural network's prediction from a forward pass"
+        },
+        {
+          "analogy_part": "Tasting the soup to see how too salty it is",
+          "concept_part": "The loss function measuring how far off the prediction is"
+        },
+        {
+          "analogy_part": "Walking backward down the prep line from final bowl to first cook",
+          "concept_part": "Propagating the error backward through the network layers"
+        },
+        {
+          "analogy_part": "Telling each cook how much their step contributed to the saltiness",
+          "concept_part": "Calculating each weight's share of the error using gradients"
+        },
+        {
+          "analogy_part": "Each cook adjusting their seasoning a little for the next pot",
+          "concept_part": "Updating weights slightly to reduce future error"
+        }
+      ],
+      "image_prompt": "Simple friendly flat cartoon of a bright soup kitchen viewed from the side. On the left and center, three cooks stand in a line behind a long counter, each with a big soup pot adding vegetables, broth, and salt. On the right, a head chef tastes the final bowl of soup with a spoon with a surprised face. Big dashed arrows curve backward from the final bowl to each cook, showing feedback flowing backward. No words or letters in the image.",
+      "image_id": "demo-backpropagation.webp",
+      "check": {
+        "fixes": [],
+        "pass": true
+      },
+      "attempts": 1,
+      "images_used": 1,
+      "cost_usd": 0.0292
+    },
+    "simplify": {
+      "action": "simplify",
+      "reply": "I shrank it down to just one salty taste and one step back to find the salt.",
+      "new_analogy": "Your soup comes out too salty. You walk backwards through each step to find where the extra salt came from. Next time, you use a little less.",
+      "focus_part": "",
+      "image_id": "demo-backpropagation-simple.webp",
+      "images_used": 1,
+      "cost_usd": 0.0199
+    },
+    "cost_usd": 0.0561
+  },
+  {
+    "slug": "hash-table",
+    "concept": "What is a hash table?",
+    "interest": "Library",
+    "options": [
+      {
+        "domain": "Library card catalog",
+        "id": "1",
+        "one_line": "A hash table is like a card catalog where a formula turns each book title into a specific drawer number for instant lookup"
+      },
+      {
+        "domain": "Library shelf markers",
+        "id": "2",
+        "one_line": "A hash table is like library shelves where a short code on each book tells the librarian exactly which aisle and spot to check first"
+      },
+      {
+        "domain": "Library front desk",
+        "id": "3",
+        "one_line": "A hash table is like a front desk with numbered cubbies where different books can share a cubby and are stacked behind each other when their codes match"
+      }
+    ],
+    "chosen": {
+      "domain": "Library card catalog",
+      "id": "1",
+      "one_line": "A hash table is like a card catalog where a formula turns each book title into a specific drawer number for instant lookup"
+    },
+    "result": {
+      "concept": "What is a hash table?",
+      "option": {
+        "domain": "Library card catalog",
+        "id": "1",
+        "one_line": "A hash table is like a card catalog where a formula turns each book title into a specific drawer number for instant lookup"
+      },
+      "analogy": "Imagine a library with a big cabinet of tiny drawers called a card catalog. When you want a book, you don't open every drawer, you use a simple formula that turns the book's title into one drawer number. You walk straight to that drawer and pull the card that tells you exactly where the book lives on the shelves. If two different titles happen to get the same drawer number, their cards just share that drawer side by side.",
+      "mapping": [
+        {
+          "analogy_part": "book title written on a request slip",
+          "concept_part": "key you want to look up"
+        },
+        {
+          "analogy_part": "formula that turns a book title into a drawer number",
+          "concept_part": "hash function that converts a key to a slot number"
+        },
+        {
+          "analogy_part": "wall of small wooden catalog drawers",
+          "concept_part": "array of buckets where data is stored"
+        },
+        {
+          "analogy_part": "index card inside the drawer showing where the book is on the shelf",
+          "concept_part": "value stored for each key"
+        },
+        {
+          "analogy_part": "two different titles assigned to the same drawer with their cards stacked together",
+          "concept_part": "collision when two keys map to the same bucket"
+        }
+      ],
+      "image_prompt": "Simple friendly flat illustration of a cozy library interior. In the center a smiling visitor holds a blank paper slip and stands before a large wooden cabinet wall full of small drawers. One middle drawer is pulled open showing two stacked blank cards inside, with a friendly librarian pointing from the slip toward that open drawer. Warm colors, simple shapes, no words or letters in the image.\n\nImportant fixes from a review of the last attempt: Add simple title-to-drawer-number arrow/formula from slip to open drawer; Show a title mark on the request slip in his hand; Show two distinct stacked cards with shelf marks in the open drawer",
+      "image_id": "demo-hash-table.webp",
+      "check": {
+        "fixes": [],
+        "pass": true
+      },
+      "attempts": 2,
+      "images_used": 2,
+      "cost_usd": 0.0534
+    },
+    "simplify": {
+      "action": "simplify",
+      "reply": "I swapped the big cabinet for just a few big drawers so you can see the straight-to-it idea.",
+      "new_analogy": "Imagine just a few little drawers on a wall. The name of your book tells you exactly which drawer to open. You go straight to that one drawer and get what you need.",
+      "focus_part": "",
+      "image_id": "demo-hash-table-simple.webp",
+      "images_used": 1,
+      "cost_usd": 0.0203
+    },
+    "cost_usd": 0.0804
+  },
+  {
+    "slug": "compound-interest",
+    "concept": "How does compound interest work?",
+    "interest": "Gardening",
+    "options": [
+      {
+        "domain": "growing tomato plants",
+        "id": "1",
+        "one_line": "Compound interest is like growing tomato plants where every tomato you harvest gives you seeds to plant more vines that grow even more tomatoes."
+      },
+      {
+        "domain": "planting apple orchard",
+        "id": "2",
+        "one_line": "Compound interest is like planting an apple orchard where each tree grows apples whose seeds sprout into new trees that make apples of their own."
+      },
+      {
+        "domain": "saving heirloom seeds",
+        "id": "3",
+        "one_line": "Compound interest is like saving heirloom seeds where you replant your expanding seed stash each spring so each harvest adds even more seeds to next year's planting."
+      }
+    ],
+    "chosen": {
+      "domain": "growing tomato plants",
+      "id": "1",
+      "one_line": "Compound interest is like growing tomato plants where every tomato you harvest gives you seeds to plant more vines that grow even more tomatoes."
+    },
+    "result": {
+      "concept": "How does compound interest work?",
+      "option": {
+        "domain": "growing tomato plants",
+        "id": "1",
+        "one_line": "Compound interest is like growing tomato plants where every tomato you harvest gives you seeds to plant more vines that grow even more tomatoes."
+      },
+      "analogy": "Putting money in savings is like planting your first tomato vine. Each season that vine grows new tomatoes, just like your money earns interest. If you save the seeds from those tomatoes and plant more vines, you will have more plants. Over many seasons, those extra vines grow even more tomatoes, so your harvest gets bigger and bigger.",
+      "mapping": [
+        {
+          "analogy_part": "first tomato vine planted",
+          "concept_part": "initial deposit of money"
+        },
+        {
+          "analogy_part": "tomatoes harvested that season",
+          "concept_part": "interest earned in one period"
+        },
+        {
+          "analogy_part": "saving seeds from harvest to plant more vines",
+          "concept_part": "reinvesting interest to earn more"
+        },
+        {
+          "analogy_part": "expanding garden with more vines yielding larger harvests each season",
+          "concept_part": "accelerating growth over many periods"
+        }
+      ],
+      "image_prompt": "Simple, friendly illustration of a sunny backyard garden in one still picture. On the left, a single small tomato vine in soil. In the middle, big healthy vines heavy with red ripe tomatoes and a basket full of harvested tomatoes beside them. On the right, a smiling gardener kneeling and planting small seedlings in a new row to expand the garden. No words or letters in the image.",
+      "image_id": "demo-compound-interest.webp",
+      "check": {
+        "fixes": [],
+        "pass": true
+      },
+      "attempts": 1,
+      "images_used": 1,
+      "cost_usd": 0.023
+    },
+    "simplify": {
+      "action": "simplify",
+      "reply": "I made it much simpler with just one big plant and one new sprout.",
+      "new_analogy": "You start with one tomato plant. It makes tomatoes. You plant the seeds from those tomatoes to get even more plants and tomatoes.",
+      "focus_part": "",
+      "image_id": "demo-compound-interest-simple.webp",
+      "images_used": 1,
+      "cost_usd": 0.0196
+    },
+    "cost_usd": 0.0486
+  },
+  {
+    "slug": "photosynthesis",
+    "concept": "What is photosynthesis?",
+    "interest": "Factory",
+    "options": [
+      {
+        "domain": "solar panel factory",
+        "id": "1",
+        "one_line": "Photosynthesis is like a solar panel factory using sunlight for power to turn water and carbon dioxide deliveries into sugar food and oxygen exhaust."
+      },
+      {
+        "domain": "factory assembly line",
+        "id": "2",
+        "one_line": "Photosynthesis is like a factory assembly line where chlorophyll workers use light energy to join water and carbon dioxide parts into glucose products and oxygen byproduct."
+      },
+      {
+        "domain": "factory kitchen bakery",
+        "id": "3",
+        "one_line": "Photosynthesis is like a factory kitchen bakery cooking water and carbon dioxide ingredients with sunlight heat to bake sugary food while venting fresh oxygen steam."
+      }
+    ],
+    "chosen": {
+      "domain": "solar panel factory",
+      "id": "1",
+      "one_line": "Photosynthesis is like a solar panel factory using sunlight for power to turn water and carbon dioxide deliveries into sugar food and oxygen exhaust."
+    },
+    "result": {
+      "concept": "What is photosynthesis?",
+      "option": {
+        "domain": "solar panel factory",
+        "id": "1",
+        "one_line": "Photosynthesis is like a solar panel factory using sunlight for power to turn water and carbon dioxide deliveries into sugar food and oxygen exhaust."
+      },
+      "analogy": "Think of a leaf as a little solar panel factory. Its rooftop panels soak up sunlight for power. The factory uses that power to combine deliveries of water and carbon dioxide from the air. Inside, it builds sugar to feed the plant and releases oxygen into the air like clean exhaust.",
+      "mapping": [
+        {
+          "analogy_part": "electricity from rooftop solar panels",
+          "concept_part": "sunlight"
+        },
+        {
+          "analogy_part": "solar panel factory building",
+          "concept_part": "leaf with chlorophyll"
+        },
+        {
+          "analogy_part": "raw material deliveries by water pipe and air vent",
+          "concept_part": "water and carbon dioxide"
+        },
+        {
+          "analogy_part": "boxed sugar cube products made inside",
+          "concept_part": "sugar food for the plant"
+        },
+        {
+          "analogy_part": "clean puffs from the chimney",
+          "concept_part": "oxygen released to the air"
+        }
+      ],
+      "image_prompt": "A simple friendly cartoon illustration of a small solar panel factory on a sunny day. On the roof, shiny blue solar panels tilt toward a big smiling sun with bright beams. On the left a water pipe pours water into the factory and on the right vents pull in swirly air. In the open front cheerful workers pack sugar cubes into boxes on a conveyor, while a chimney on top puffs out fluffy white clouds. Bright colors, clean layout, no words or letters in the image.",
+      "image_id": "demo-photosynthesis.webp",
+      "check": {
+        "fixes": [],
+        "pass": true
+      },
+      "attempts": 1,
+      "images_used": 1,
+      "cost_usd": 0.0265
+    },
+    "simplify": {
+      "action": "simplify",
+      "reply": "I took away the factory details and left just a sunny little kitchen cooking food.",
+      "new_analogy": "A leaf is like a little kitchen. The sun helps it cook. It makes yummy food for the plant to eat and grow.",
+      "focus_part": "",
+      "image_id": "demo-photosynthesis-simple.webp",
+      "images_used": 1,
+      "cost_usd": 0.0194
+    },
+    "cost_usd": 0.0529
+  },
+  {
+    "slug": "vaccine",
+    "concept": "How does a vaccine train the immune system?",
+    "interest": "Security team",
+    "options": [
+      {
+        "domain": "building fire drill",
+        "id": "1",
+        "one_line": "A vaccine is like running a fire drill with fake smoke so the security team learns the layout and responds fast during a real fire."
+      },
+      {
+        "domain": "bank robber mugshots",
+        "id": "2",
+        "one_line": "A vaccine is like showing bank guards mugshots of robbers in advance so they recognize and stop them immediately when they appear."
+      },
+      {
+        "domain": "guard dog scent training",
+        "id": "3",
+        "one_line": "A vaccine is like letting guard dogs sniff a safe sample of contraband so they can detect the real dangerous shipment later."
+      }
+    ],
+    "chosen": {
+      "domain": "building fire drill",
+      "id": "1",
+      "one_line": "A vaccine is like running a fire drill with fake smoke so the security team learns the layout and responds fast during a real fire."
+    },
+    "result": {
+      "concept": "How does a vaccine train the immune system?",
+      "option": {
+        "domain": "building fire drill",
+        "id": "1",
+        "one_line": "A vaccine is like running a fire drill with fake smoke so the security team learns the layout and responds fast during a real fire."
+      },
+      "analogy": "A vaccine is like a fire drill for your body. Doctors use a harmless fake version of the germ, like fake smoke with no real fire. Your immune team gets to practice and learns exactly where to go and what to do. If the real germ ever shows up, your body already knows the plan and can stop it fast.",
+      "mapping": [
+        {
+          "analogy_part": "Fire drill using harmless fake smoke",
+          "concept_part": "Vaccine with harmless germ parts"
+        },
+        {
+          "analogy_part": "Building security team",
+          "concept_part": "Immune system cells"
+        },
+        {
+          "analogy_part": "Guards practicing and memorizing exits and routes",
+          "concept_part": "Learning and remembering the germ"
+        },
+        {
+          "analogy_part": "A real fire later in the building",
+          "concept_part": "Real infection with dangerous germ"
+        },
+        {
+          "analogy_part": "Fast, practiced emergency response to stop the fire",
+          "concept_part": "Quick defense that prevents severe illness"
+        }
+      ],
+      "image_prompt": "Simple friendly cartoon illustration of a bright office building hallway during a fire drill. Three cheerful security guards in blue uniforms studying a big floor map and pointing toward a glowing exit doorway with stairs. On the left an instructor pushes a small machine puffing soft harmless fake smoke clouds. The hallway shows doors, wall fire extinguishers, and floor arrows showing evacuation routes. No words or letters in the image.",
+      "image_id": "demo-vaccine.webp",
+      "check": {
+        "fixes": [],
+        "pass": true
+      },
+      "attempts": 1,
+      "images_used": 1,
+      "cost_usd": 0.0267
+    },
+    "simplify": {
+      "action": "simplify",
+      "reply": "I made it much simpler with just one guard and one safe puff to practice on.",
+      "new_analogy": "A shot gives your body safe practice. It meets a pretend germ that cannot hurt you. It remembers it, so it can stop the real germ fast.",
+      "focus_part": "",
+      "image_id": "demo-vaccine-simple.webp",
+      "images_used": 1,
+      "cost_usd": 0.0191
+    },
+    "cost_usd": 0.052
+  }
+]
