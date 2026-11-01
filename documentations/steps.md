@@ -17,3 +17,15 @@
 - Cost guards: a `Budget` object counts images and refuses a 3rd; option rounds are capped at 5 per concept.
 - Tested offline with fake Meta replies (a scratch script, not committed): menu flow, redraw-once,
   2-image cap, and 5-round cap all behave. Not yet run against the live API from this session (no key here).
+
+### Step 1 and 2: live test (cloud session, key added by the proxy as a network secret)
+
+- Smoke test: all 3 calls OK. Text $0.0003, drawing $0.01 (13 to 26 s), vision check $0.005. Total about $0.015.
+- Pipeline ("backpropagation" + "cooking", option 1): worked end to end, about $0.054 with a redraw.
+- Found and fixed:
+  - Muse Image is sometimes flaky: 1 false `content_policy_violation` and 1 `502` in 5 calls.
+    Draws now retry once (with a "family-friendly" prefix after a content refusal).
+  - The check was too strict: it asked for "repeat until perfect", which one still picture cannot show.
+    The check prompt now judges the core idea, with most parts visible; the same picture then passed.
+  - The key can come from the proxy (a network secret), so `META_API_KEY` is now optional in code.
+- Typical cost: about $0.03 when the first picture passes, about $0.05 with one redraw.

@@ -36,6 +36,16 @@ TIMEOUT = httpx.Timeout(180.0, connect=15.0)  # image calls can take a while
 class MetaError(RuntimeError):
     """Meta Model API returned an error or something we could not read."""
 
+    def __init__(self, message: str, status: int = 0, code: str = "") -> None:
+        super().__init__(message)
+        self.status = status  # HTTP status (0 if we never got one)
+        self.code = code      # API error code, e.g. "content_policy_violation"
+
+    @property
+    def retryable(self) -> bool:
+        """Worth one more try: a server hiccup, rate limit, or a (often false) content filter."""
+        return self.status in (0, 429, 500, 502, 503, 504) or self.code == "content_policy_violation"
+
 
 @dataclass
 class Reply:
@@ -70,23 +80,35 @@ def _load_dotenv() -> None:
 
 
 def _api_key() -> str:
+    """The key from META_API_KEY (or .env). Empty if not set.
+
+    Empty is allowed for cloud sessions where a network secret makes the proxy
+    add the Authorization header itself, so the key never reaches this code.
+    """
     _load_dotenv()
-    key = os.environ.get("META_API_KEY", "").strip()
-    if not key:
-        raise MetaError("META_API_KEY is not set. Copy .env.example to .env or export it.")
-    return key
+    return os.environ.get("META_API_KEY", "").strip()
 
 
 def _post(path: str, body: dict) -> dict:
     """Send one JSON POST to Meta and return the decoded reply."""
-    headers = {"Authorization": f"Bearer {_api_key()}", "Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json"}
+    key = _api_key()
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
     try:
         resp = httpx.post(f"{BASE_URL}{path}", json=body, headers=headers, timeout=TIMEOUT)
     except httpx.HTTPError as exc:
         raise MetaError(f"Could not reach Meta Model API: {exc}") from exc
+    if resp.status_code == 401 and not key:
+        raise MetaError("HTTP 401: no key. Set META_API_KEY (export it or put it in .env).", status=401)
     if resp.status_code >= 400:
         # The body is the API's error message; it never contains our key.
-        raise MetaError(f"HTTP {resp.status_code} from {path}: {resp.text[:300]}")
+        try:
+            code = (resp.json().get("error") or {}).get("code", "")
+        except ValueError:
+            code = ""
+        raise MetaError(f"HTTP {resp.status_code} from {path}: {resp.text[:300]}",
+                        status=resp.status_code, code=code)
     return resp.json()
 
 

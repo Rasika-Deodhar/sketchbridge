@@ -19,3 +19,9 @@
     The option-round counter is in memory, so it resets when the app restarts. That's enough for a demo.
 13. **If the second picture still fails the check, we return it anyway** with `pass: false` and the fixes,
     instead of drawing a third time.
+14. **Retry a failed draw once.** A failed call returns no image and is not billed, so the 2-image cap
+    counts images actually made. Worst case is 4 draw calls per request (2 images + 2 failed calls).
+15. **The check judges like a teacher, not a perfectionist.** It passes if the core idea and most mapped
+    parts are visible. Time and repetition can't be shown in one still picture.
+16. **`META_API_KEY` is optional in code.** In a cloud session the key can be a network secret that the
+    proxy adds to requests, so the key never reaches the app at all.
