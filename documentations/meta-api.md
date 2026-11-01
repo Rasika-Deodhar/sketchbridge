@@ -16,7 +16,7 @@ so the cookbook was the source.
 | Image input | content part `{"type": "image_url", "image_url": {"url": "data:image/...;base64,..."}}`, user messages only |
 | Image model | `muse-image-1.0` on `POST /responses`, body `{"model", "input": "<prompt>"}` |
 | Image output | `output` list; the item with `type == "image_generation_call"` has base64 `result` (WebP in the examples) |
-| Speech to text | `muse-voice-transcribe-1.0`, `POST /v1/asr/transcribe`, mono 16-bit WAV, Bearer header |
+| Speech to text | `muse-voice-transcribe-1.0`, `POST /v1/asr/transcribe`, multipart: `request` (JSON: `model`, `mode`, `audioEncoding: "WAV"`) + `audio` (mono 16-bit WAV, 16 or 24 kHz); reply has `transcript` and `audioDurationMs`. Limits: 10 min / 32 MB |
 
 ## Prices used for cost estimates
 

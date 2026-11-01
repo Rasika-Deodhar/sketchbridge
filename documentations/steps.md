@@ -66,3 +66,16 @@
   its options and result instantly; the cached option is marked "instant", and "I don't get it, simplify"
   on the first picture uses the saved answer. Everything else (other options, other follow-ups) goes live.
 - Browser test: all 5 demos plus a cached simplify made zero API calls.
+
+## Step 5: Voice input (optional)
+
+- `meta_client.transcribe(wav)`: Muse Voice Transcribe (`muse-voice-transcribe-1.0`) via the one-shot
+  `POST /v1/asr/transcribe`, sent as multipart (a JSON `request` part + an `audio` WAV part), as in the
+  cookbook's `06_muse_voice` recipe. Cost = audio length x $0.18/hour.
+- `POST /transcribe` in `main.py`: the browser sends the WAV as the raw body (max 4 MB), so no extra
+  upload library is needed. The blocking Meta call runs on a worker thread.
+- Page: a 🎤 button beside the question box. It records with the browser mic (auto-stops at 30 s),
+  converts the recording to 16 kHz mono 16-bit WAV in the browser, and fills the question box.
+- Tests: a synthetic "What is backpropagation?" clip (made with espeak-ng in the build container only)
+  came back as "What is back propagation?" ($0.0001 for 2 s). End to end in Chromium with a fake
+  microphone: the box filled correctly, $0.0002. A non-WAV upload returns HTTP 400.

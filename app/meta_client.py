@@ -8,6 +8,8 @@ Facts below come from the official Meta Model API cookbook
   - vision    same endpoint; an {"type": "image_url"} part in a *user* message
   - drawing   POST /responses          model "muse-image-1.0"; the image comes
               back as base64 in output[type == "image_generation_call"].result
+  - speech    POST /asr/transcribe     model "muse-voice-transcribe-1.0"; multipart with a
+              JSON "request" part and an "audio" part (mono 16-bit WAV, 16 or 24 kHz)
 """
 
 from __future__ import annotations
@@ -23,12 +25,16 @@ import httpx
 BASE_URL = "https://api.meta.ai/v1"
 TEXT_MODEL = "muse-spark-1.3"
 IMAGE_MODEL = "muse-image-1.0"
+VOICE_MODEL = "muse-voice-transcribe-1.0"
 
 # Prices in US dollars (from the project brief).
 PRICE_IN_PER_M = 1.25
 PRICE_CACHED_IN_PER_M = 0.15
 PRICE_OUT_PER_M = 4.25
 PRICE_PER_IMAGE = 0.01
+PRICE_VOICE_PER_HOUR = 0.18
+
+MAX_AUDIO_BYTES = 32 * 1024 * 1024  # the one-shot endpoint's limit (also max 10 minutes)
 
 TIMEOUT = httpx.Timeout(180.0, connect=15.0)  # image calls can take a while
 
@@ -89,14 +95,17 @@ def _api_key() -> str:
     return os.environ.get("META_API_KEY", "").strip()
 
 
-def _post(path: str, body: dict) -> dict:
-    """Send one JSON POST to Meta and return the decoded reply."""
-    headers = {"Content-Type": "application/json"}
+def _post(path: str, body: dict | None = None, files: dict | None = None) -> dict:
+    """Send one POST to Meta (JSON body, or multipart `files`) and return the decoded reply."""
+    headers = {}
     key = _api_key()
     if key:
         headers["Authorization"] = f"Bearer {key}"
     try:
-        resp = httpx.post(f"{BASE_URL}{path}", json=body, headers=headers, timeout=TIMEOUT)
+        if files is not None:
+            resp = httpx.post(f"{BASE_URL}{path}", files=files, headers=headers, timeout=TIMEOUT)
+        else:
+            resp = httpx.post(f"{BASE_URL}{path}", json=body, headers=headers, timeout=TIMEOUT)
     except httpx.HTTPError as exc:
         raise MetaError(f"Could not reach Meta Model API: {exc}") from exc
     if resp.status_code == 401 and not key:
@@ -217,3 +226,21 @@ def draw(prompt: str, out_path_without_ext: str, reference_image: str | None = N
     ).strip()
     return Reply(text=text, image_path=str(path), cost_usd=PRICE_PER_IMAGE,
                  usage=data.get("usage") or {})
+
+
+def transcribe(wav: bytes) -> Reply:
+    """Turn a short spoken WAV recording into text with Muse Voice Transcribe."""
+    if not (wav[:4] == b"RIFF" and wav[8:12] == b"WAVE"):
+        raise ValueError("Audio must be a WAV file.")
+    if len(wav) > MAX_AUDIO_BYTES:
+        raise ValueError("Audio is over 32 MB.")
+    request = {"model": VOICE_MODEL, "mode": "PUSH_TO_TALK", "audioEncoding": "WAV"}
+    data = _post("/asr/transcribe", files={
+        # As in the cookbook: the settings travel as a JSON part, not as form fields.
+        "request": (None, json.dumps(request), "application/json"),
+        "audio": ("speech.wav", wav, "audio/wav"),
+    })
+    ms = data.get("audioDurationMs") or 0
+    return Reply(text=(data.get("transcript") or "").strip(),
+                 cost_usd=ms / 3_600_000 * PRICE_VOICE_PER_HOUR,
+                 usage={"audio_ms": ms})

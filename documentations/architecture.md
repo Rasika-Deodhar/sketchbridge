@@ -52,3 +52,5 @@ image, shown parts, last messages) and sends it with each follow-up, so the serv
 | `POST /explain` | steps 1 to 3 |
 | `POST /followup` | answer / simplify / edit / next_scene |
 | `GET /image/{id}` | a picture from `cache/` (name checked against a strict pattern) |
+| `GET /demos` | the 5 cached demos |
+| `POST /transcribe` | a short WAV recording -> text (Muse Voice Transcribe) |
