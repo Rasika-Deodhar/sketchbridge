@@ -43,3 +43,9 @@
     can show the demo with no key and no waiting. Other generated pictures stay git-ignored.
 24. **Demos store one follow-up (simplify)**, because "I don't understand" is the main moment in the demo
     story. Other follow-ups on a demo still run live.
+25. **One-shot transcription, not the streaming WebSocket.** Questions are a few seconds long, so one HTTP
+    request after recording is simpler than streaming and needs no extra library.
+26. **Convert audio to WAV in the browser.** Browsers record compressed audio (webm/opus), but the API
+    wants mono 16-bit WAV. The page decodes and resamples with the Web Audio API, so the server needs no
+    ffmpeg and no extra Python packages.
+27. **Voice fills the question box but does not submit it.** The learner can fix a misheard word first.

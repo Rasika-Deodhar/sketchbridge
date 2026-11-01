@@ -67,6 +67,10 @@
   .demos button { padding: 6px 12px; font-size: .88rem; border-radius: 999px; }
   .option.cached { position: relative; }
   .option.cached::after { content: "instant"; position: absolute; top: 8px; right: 10px; font-size: .72rem; color: var(--muted); }
+  .with-mic { display: flex; gap: 6px; }
+  .with-mic input { flex: 1; }
+  #micBtn { padding: 10px 12px; background: transparent; color: var(--accent); }
+  #micBtn.rec { background: var(--warn); border-color: var(--warn); color: #fff; }
   [hidden] { display: none !important; }
   @media (max-width: 720px) {
     form.ask { grid-template-columns: 1fr; }
@@ -87,7 +91,10 @@
     <form class="ask" id="askForm">
       <div>
         <label for="concept">What do you want to understand?</label>
-        <input type="text" id="concept" placeholder="What is backpropagation?" required maxlength="200">
+        <div class="with-mic">
+          <input type="text" id="concept" placeholder="What is backpropagation?" required maxlength="200">
+          <button type="button" id="micBtn" title="Ask by voice" aria-label="Ask by voice">🎤</button>
+        </div>
       </div>
       <div>
         <label for="interest">Domain (optional)</label>
@@ -357,6 +364,87 @@ fetch("/demos").then((r) => r.json()).then((list) => {
   }
   $("demos").hidden = false;
 }).catch(() => {});
+
+// ---- Voice: record, convert to 16 kHz mono WAV, transcribe -----------------
+const MAX_RECORD_MS = 30000;
+let recorder = null, recordTimer = null;
+
+function encodeWav(samples, rate) {
+  // 16-bit PCM WAV: a 44-byte header followed by the samples.
+  const buf = new ArrayBuffer(44 + samples.length * 2);
+  const v = new DataView(buf);
+  const text = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  text(0, "RIFF"); v.setUint32(4, 36 + samples.length * 2, true); text(8, "WAVE");
+  text(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  text(36, "data"); v.setUint32(40, samples.length * 2, true);
+  samples.forEach((x, i) => v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, x)) * 0x7fff, true));
+  return new Blob([buf], { type: "audio/wav" });
+}
+
+async function toWav16k(blob) {
+  // Decode whatever the browser recorded, then resample to 16 kHz mono.
+  const ctx = new AudioContext();
+  const decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
+  ctx.close();
+  const rate = 16000;
+  const offline = new OfflineAudioContext(1, Math.ceil(decoded.duration * rate), rate);
+  const src = offline.createBufferSource();
+  src.buffer = decoded;
+  src.connect(offline.destination);
+  src.start();
+  const rendered = await offline.startRendering();
+  return encodeWav(rendered.getChannelData(0), rate);
+}
+
+async function sendRecording(blob) {
+  setBusy(true);
+  setStatus("Turning your voice into text…");
+  try {
+    const wav = await toWav16k(blob);
+    const res = await fetch("/transcribe", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: wav });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+    addSpend(data.cost_usd);
+    if (!data.text) throw new Error("I couldn't hear any words. Try again, a little closer to the mic.");
+    $("concept").value = data.text;
+    setStatus("");
+    $("concept").focus();
+  } catch (err) {
+    setStatus(err.message, true);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function toggleRecording() {
+  if (recorder) { recorder.stop(); return; }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    setStatus("Microphone not available. Allow mic access in your browser, or type instead.", true);
+    return;
+  }
+  const chunks = [];
+  recorder = new MediaRecorder(stream);
+  recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  recorder.onstop = () => {
+    clearTimeout(recordTimer);
+    stream.getTracks().forEach((t) => t.stop());
+    recorder = null;
+    $("micBtn").classList.remove("rec");
+    $("micBtn").textContent = "🎤";
+    sendRecording(new Blob(chunks, { type: chunks[0]?.type || "audio/webm" }));
+  };
+  recorder.start();
+  $("micBtn").classList.add("rec");
+  $("micBtn").textContent = "■";
+  setStatus("Listening… say your question, then press ■ (stops by itself after 30 seconds).");
+  recordTimer = setTimeout(() => recorder && recorder.stop(), MAX_RECORD_MS);
+}
+
+$("micBtn").addEventListener("click", toggleRecording);
 
 // ---- Wiring ----------------------------------------------------------------
 $("askForm").addEventListener("submit", (e) => {

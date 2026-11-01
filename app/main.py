@@ -9,6 +9,7 @@ Routes:
     POST /followup          a question or request about the current picture
     GET  /image/{image_id}  a saved picture from cache/
     GET  /demos             the 5 pre-built demo concepts (instant, no API calls)
+    POST /transcribe        a short WAV recording (raw body) -> text, via Muse Voice Transcribe
 """
 
 from __future__ import annotations
@@ -16,7 +17,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -26,6 +28,8 @@ from app import pipeline
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
 app = FastAPI(title="Sketchbridge")
+
+MAX_UPLOAD_BYTES = 4 * 1024 * 1024  # about 2 minutes of 16 kHz mono speech; the page stops at 30 s
 
 
 # ------------------------------------------------------------ request shapes
@@ -141,3 +145,20 @@ def demos():
     """Pre-built results from `python -m app.build_demo` (empty list if not built)."""
     manifest = pipeline.CACHE_DIR / "demos.json"
     return json.loads(manifest.read_text()) if manifest.exists() else []
+
+
+@app.post("/transcribe")
+async def transcribe(request: Request):
+    """Speech to text for the question box. The browser sends a mono 16 kHz WAV as the body."""
+    if int(request.headers.get("content-length") or 0) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "Recording is too long.")
+    wav = await request.body()
+    if len(wav) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "Recording is too long.")
+
+    def go():
+        reply = mc.transcribe(wav)
+        return {"text": reply.text, "seconds": round(reply.usage.get("audio_ms", 0) / 1000, 1),
+                "cost_usd": round(reply.cost_usd, 6)}
+    # The Meta call blocks, so run it on a worker thread and keep the server responsive.
+    return await run_in_threadpool(_run, "transcribe", go)
