@@ -10,3 +10,12 @@
 6. **Structured JSON output** (`response_format` with a JSON schema), so replies always parse.
 7. **`store: false` on image calls.** We never chain image turns, so the server does not need to keep state.
 8. **Cost is computed from each reply's `usage`** (text) or a flat $0.01 (image), and returned with every call.
+9. **The app assigns option ids "1", "2", "3"** instead of trusting the model's ids, so the buttons and
+   the command line always match.
+10. **"Try another" sends the domains already shown**, so new options don't repeat them.
+11. **Redraw prompt = original prompt + the reviewer's fixes.** We never send the old image back;
+    one fresh draw keeps it simple and inside the 2-image cap.
+12. **Cost guard lives in the pipeline** (`Budget`), so the command line and the web app share it.
+    The option-round counter is in memory, so it resets when the app restarts. That's enough for a demo.
+13. **If the second picture still fails the check, we return it anyway** with `pass: false` and the fixes,
+    instead of drawing a third time.
