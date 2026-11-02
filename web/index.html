@@ -28,9 +28,9 @@
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
   form.ask { display: grid; grid-template-columns: 2fr 1fr auto; gap: 10px; align-items: end; }
   label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
-  input[type=text] { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+  input[type=text], input[type=password] { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
                      background: var(--bg); color: var(--ink); font: inherit; }
-  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input[type=text]:focus, input[type=password]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   button { font: inherit; border-radius: 10px; padding: 10px 16px; border: 1px solid var(--accent);
            background: var(--accent); color: var(--accent-ink); cursor: pointer; }
   button.ghost { background: transparent; color: var(--accent); }
@@ -123,6 +123,16 @@
 
   <div class="status" id="status" hidden></div>
 
+  <section class="card" id="accessCard" hidden>
+    <h2>Access code</h2>
+    <p class="muted" id="accessMsg"></p>
+    <form class="follow" id="accessForm">
+      <input type="password" id="accessInput" maxlength="100" placeholder="Access code" autocomplete="current-password">
+      <button type="submit">Continue</button>
+      <button type="button" class="ghost" id="accessCancel">Cancel</button>
+    </form>
+  </section>
+
   <section class="card" id="optionsCard" hidden>
     <h2>Pick an analogy</h2>
     <div class="options" id="options"></div>
@@ -209,11 +219,50 @@ function addSpend(cost) {
 }
 
 function setBusy(busy) {
-  document.querySelectorAll("button, input, textarea").forEach((el) => (el.disabled = busy));
+  document.querySelectorAll("button, input, textarea").forEach((el) => {
+    if (!el.closest("#accessCard")) el.disabled = busy;
+  });
+}
+
+// ---- Access code: asked for only if the server has ACCESS_CODE set ----------
+const CODE_KEY = "sketchbridge-access-code";
+let accessCode = "";
+try { accessCode = localStorage.getItem(CODE_KEY) || ""; } catch {}
+
+function askForCode(wrong) {
+  $("accessMsg").textContent = wrong
+    ? "That code didn't work. Check it and try again."
+    : "This site asks for a code before it uses the paid AI models. The ready-made examples work without one.";
+  $("accessCard").hidden = false;
+  $("accessInput").value = "";
+  $("accessInput").focus();
+  return new Promise((resolve) => {
+    const done = (code) => {
+      $("accessCard").hidden = true;
+      $("accessForm").onsubmit = $("accessCancel").onclick = null;
+      resolve(code);
+    };
+    $("accessForm").onsubmit = (e) => { e.preventDefault(); done($("accessInput").value.trim()); };
+    $("accessCancel").onclick = () => done("");
+  });
+}
+
+async function paidFetch(path, init) {
+  // Send the saved code; if the server refuses it, ask once more (twice at most), then give up.
+  for (let tries = 0; tries < 3; tries++) {
+    const res = await fetch(path, { ...init, headers: { ...init.headers, "X-Access-Code": accessCode } });
+    if (res.status !== 401) return res;
+    const data = await res.clone().json().catch(() => ({}));
+    if (data.detail !== "access_code") return res;
+    accessCode = await askForCode(tries > 0 || Boolean(accessCode));
+    if (!accessCode) throw new Error("This needs the access code. The ready-made examples work without one.");
+    try { localStorage.setItem(CODE_KEY, accessCode); } catch {}
+  }
+  throw new Error("That access code didn't work.");
 }
 
 async function post(path, body) {
-  const res = await fetch(path, {
+  const res = await paidFetch(path, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
@@ -526,7 +575,7 @@ async function sendRecording(blob, target) {
   setStatus("Turning your voice into text…");
   try {
     const wav = await toWav16k(blob);
-    const res = await fetch("/transcribe", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: wav });
+    const res = await paidFetch("/transcribe", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: wav });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
     addSpend(data.cost_usd);

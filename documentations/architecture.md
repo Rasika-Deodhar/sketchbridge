@@ -71,4 +71,5 @@ sees progress. Guard: 10 checks per concept.
 | `POST /check` | the learner's own explanation -> which mapping parts they got, misconception, feedback |
 | `GET /image/{id}` | a picture from `cache/` (name checked against a strict pattern) |
 | `GET /demos` | the 5 cached demos |
+| `GET /health` | `{"ok": true}` for Render's health check (no API calls) |
 | `POST /transcribe` | a short WAV recording -> text (Muse Voice Transcribe) |

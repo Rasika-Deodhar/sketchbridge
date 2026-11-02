@@ -1,0 +1,21 @@
+# Render Blueprint: render.com -> New -> Blueprint -> pick this repo.
+# Render deploys `main` only after the GitHub Actions checks (.github/workflows/ci.yml) pass.
+services:
+  - type: web
+    name: sketchbridge
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    # One worker: the cost limits are counted in memory.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      # Secrets: Render asks for these when the Blueprint is created. They never go in git.
+      - key: META_API_KEY
+        sync: false
+      - key: ACCESS_CODE
+        sync: false
