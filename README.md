@@ -21,6 +21,10 @@ flowchart TD
     F -- passes --> G["Show analogy + picture"]
     F -- "fails (first time)" --> H["Redraw once with fixes<br/>(Muse Image)"]
     H --> G
+    G --> T["Explain it back in your own words<br/>(typed or by voice)"]
+    T --> U{"Which mapping parts did you get?<br/>(Muse Spark)"}
+    U -- "gap found" --> M
+    U -- "got it all" --> Z["Understood ✓"]
     G --> I{"Follow-up?<br/>Muse Spark decides the action"}
     I -- answer --> J["Answer the question"]
     I -- simplify --> K["Simpler explanation"]
@@ -79,10 +83,12 @@ Each request prints its estimated cost; the page shows a running total.
 | 3 options | about $0.008 |
 | Analogy + picture + check | about $0.025 (about $0.05 if it redraws) |
 | Follow-up: answer | about $0.009 |
+| Explain-it-back check | about $0.004 |
 | Follow-up: simplify / edit / next scene | about $0.02 |
 | Voice question (a few seconds) | about $0.0002 |
 
-Guards: at most 2 images per request, 5 "Try another" rounds per concept, and 15 follow-ups per concept.
+Guards: at most 2 images per request, 5 "Try another" rounds per concept, 15 follow-ups per concept,
+and 10 explain-it-back checks per concept.
 
 ## Built during the hackathon
 
@@ -109,12 +115,12 @@ No Contributor variants, open-weight models, or local models were used.
 | `requirements.txt` | `fastapi`, `uvicorn`, `httpx` |
 | `app/__init__.py` | Marks `app` as a Python package |
 | `app/meta_client.py` | The only file that talks to Meta: `chat`, `chat_with_image`, `draw`, `transcribe`, with cost estimates |
-| `app/pipeline.py` | Plain functions: options, analogy, draw, check, redraw once, follow-ups, and the cost guards |
+| `app/pipeline.py` | Plain functions: options, analogy, draw, check, redraw once, follow-ups, explain-it-back check, and the cost guards |
 | `app/run.py` | Command line: pick 1, 2, 3 or "a" for another set |
 | `app/smoke_test.py` | Step 1 check that the key and each API call work |
-| `app/main.py` | FastAPI server: `/options`, `/explain`, `/followup`, `/transcribe`, `/image/{id}`, `/demos` |
+| `app/main.py` | FastAPI server: `/options`, `/explain`, `/followup`, `/check`, `/transcribe`, `/image/{id}`, `/demos` |
 | `app/build_demo.py` | Builds the 5 cached demos |
-| `web/index.html` | The one-page app (no framework): question, domain, mic button, options, result card, follow-up chat |
+| `web/index.html` | The one-page app (no framework): question, domain, mic button, options, result card, explain-it-back check, follow-up chat |
 | `cache/.gitkeep` | Keeps the `cache/` folder in git |
 | `cache/demos.json` | The 5 demos: options, analogy, mapping, check result, and a saved "simplify" answer |
 | `cache/demo-backpropagation.webp`, `cache/demo-backpropagation-simple.webp` | Backpropagation / Restaurant: picture and simpler picture |
@@ -136,6 +142,7 @@ No Contributor variants, open-weight models, or local models were used.
 4. Demo cache of 5 tested concepts
 5. Voice questions with Muse Voice Transcribe
 6. This README
+7. Explain-it-back check: the learner explains the idea, Muse Spark grades each mapping part
 
 API details came from Meta's official cookbook
 ([meta-models/meta-model-cookbook](https://github.com/meta-models/meta-model-cookbook)).

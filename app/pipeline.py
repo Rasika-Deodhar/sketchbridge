@@ -370,7 +370,7 @@ Actions:
 - edit: they ask to change the picture. image_prompt = the change to make, keeping everything else.
   reply = one sentence saying what changed.
 - next_scene: they want more, the next step, or a closer look. Pick one mapping part not shown yet
-  (focus_part = its analogy part). image_prompt = a NEW close-up view of that part in the same world,
+  (focus_part = its analogy part). If the learner names a part, use that part even if it was shown. image_prompt = a NEW close-up view of that part in the same world,
   style and characters: a different camera angle and composition, not a copy of the current picture. reply = 2 to 3 sentences explaining what this scene shows about the concept.
 Rules: new_analogy is "" unless action is simplify. focus_part is "" unless action is next_scene.
 Images: no words or letters, except at most 3 very short labels."""
@@ -400,3 +400,107 @@ Images: no words or letters, except at most 3 very short labels."""
         result.update(image_path=path, image_id=Path(path).name)
     result.update(images_used=budget.images, cost_usd=round(budget.cost_usd, 4))
     return result
+
+
+# ------------------------------------------------------------ explain it back (check understanding)
+
+MAX_CHECKS_PER_CONCEPT = 10  # text only, about $0.004 each
+_checks: dict[str, int] = {}
+CHECK_STATUSES = ["got", "partly", "missed"]
+
+UNDERSTANDING_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "parts": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "index": {"type": "integer"},
+                    "status": {"type": "string", "enum": CHECK_STATUSES},
+                    "note": {"type": "string"},
+                },
+                "required": ["index", "status", "note"],
+                "additionalProperties": False,
+            },
+        },
+        "misconception": {"type": "string"},
+        "feedback": {"type": "string"},
+        "focus_index": {"type": "integer"},
+    },
+    "required": ["parts", "misconception", "feedback", "focus_index"],
+    "additionalProperties": False,
+}
+
+
+def check_understanding(concept: str, analogy: str, mapping: list[dict], explanation: str) -> dict:
+    """Grade the learner's own explanation against the mapping (retrieval practice).
+
+    Returns one status per mapping part (got / partly / missed), any misconception,
+    short encouraging feedback, and the most important part to show next (or none).
+    Text only: no image is made here. The page offers a next_scene follow-up for the gap.
+    """
+    concept, explanation = concept.strip(), (explanation or "").strip()
+    if not concept or not mapping:
+        raise ValueError("Nothing to check against yet.")
+    if len(explanation.split()) < 3:
+        raise ValueError("Write (or say) a sentence or two in your own words first.")
+    key = _concept_key(concept)
+    if _checks.get(key, 0) >= MAX_CHECKS_PER_CONCEPT:
+        raise LimitError(f"Check limit reached: {MAX_CHECKS_PER_CONCEPT} per concept.")
+    _checks[key] = _checks.get(key, 0) + 1
+
+    pairs = "\n".join(f"{i}. {m['concept_part']}  (in the analogy: {m['analogy_part']})"
+                      for i, m in enumerate(mapping, start=1))
+    prompt = f"""You are a kind, honest teacher checking whether a learner understood "{concept}".
+They were taught with this analogy: {analogy}
+
+The key parts of the concept (numbered):
+{pairs}
+
+The learner explained it back in their own words (it may come from speech, so ignore typos and filler):
+\"\"\"{explanation}\"\"\"
+
+For EVERY numbered part, give:
+- index: its number
+- status: "got" if their explanation clearly shows that part (in concept words OR analogy words),
+  "partly" if it is vague or half right, "missed" if it is absent or wrong
+- note: at most 12 words on why
+misconception: one sentence naming a wrong idea they stated, or "" if there is none.
+  Mixing up the analogy with the real thing counts (e.g. saying neurons are literally waiters).
+feedback: 2 to 3 plain, encouraging sentences: first what they got right, then the one most
+  important thing to fix. Speak to them as "you".
+focus_index: the number of the most important part they missed or got partly, or 0 if they got all.
+Judge understanding, not wording. Do not reward copying the analogy text without the idea."""
+
+    budget = Budget()
+    data = budget.add(mc.chat(prompt, schema=UNDERSTANDING_SCHEMA, schema_name="understanding")).json()
+
+    # Rebuild the list in mapping order so a skipped or repeated index can't misalign the page.
+    by_index: dict[int, dict] = {}
+    for p in data.get("parts", []):
+        if p.get("status") in CHECK_STATUSES:
+            by_index.setdefault(p.get("index"), p)  # first answer wins
+    parts = []
+    for i, m in enumerate(mapping, start=1):
+        p = by_index.get(i, {"status": "missed", "note": "not mentioned"})
+        parts.append({"concept_part": m["concept_part"], "analogy_part": m["analogy_part"],
+                      "status": p["status"], "note": p.get("note", "")})
+
+    focus = data.get("focus_index", 0)
+    if not (1 <= focus <= len(parts)) or parts[focus - 1]["status"] == "got":
+        gaps = [i for i, p in enumerate(parts, start=1) if p["status"] != "got"]
+        focus = gaps[0] if gaps else 0
+    got = sum(p["status"] == "got" for p in parts)
+    misconception = (data.get("misconception") or "").strip()
+    return {
+        "parts": parts,
+        "got": got,
+        "total": len(parts),
+        "understood": got == len(parts) and not misconception,
+        "misconception": misconception,
+        "feedback": data.get("feedback", ""),
+        "focus_part": parts[focus - 1]["analogy_part"] if focus else "",
+        "focus_concept_part": parts[focus - 1]["concept_part"] if focus else "",
+        "cost_usd": round(budget.cost_usd, 4),
+    }

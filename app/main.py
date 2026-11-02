@@ -7,6 +7,7 @@ Routes:
     POST /options           concept, interest -> 3 analogy options
     POST /explain           concept, option   -> analogy, mapping, checked image
     POST /followup          a question or request about the current picture
+    POST /check             the learner explains it back -> which mapping parts they got
     GET  /image/{image_id}  a saved picture from cache/
     GET  /demos             the 5 pre-built demo concepts (instant, no API calls)
     POST /transcribe        a short WAV recording (raw body) -> text, via Muse Voice Transcribe
@@ -73,6 +74,13 @@ class FollowupIn(BaseModel):
     history: list[Turn] = Field(default_factory=list, max_length=20)
 
 
+class CheckIn(BaseModel):
+    concept: str = Field(min_length=1, max_length=200)
+    analogy: str = Field(max_length=3000)
+    mapping: list[MappingPair] = Field(min_length=1, max_length=10)
+    explanation: str = Field(min_length=1, max_length=2000)
+
+
 # ------------------------------------------------------------ helpers
 
 
@@ -130,6 +138,16 @@ def followup(body: FollowupIn):
         shown_parts=body.shown_parts,
         history=[t.model_dump() for t in body.history],
     )))
+
+
+@app.post("/check")
+def check(body: CheckIn):
+    return _run("check", lambda: pipeline.check_understanding(
+        concept=body.concept,
+        analogy=body.analogy,
+        mapping=[m.model_dump() for m in body.mapping],
+        explanation=body.explanation,
+    ))
 
 
 IMAGE_TYPES = {".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg"}

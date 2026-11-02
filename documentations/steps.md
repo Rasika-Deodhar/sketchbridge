@@ -86,3 +86,17 @@
   all commands, typical costs, and a "Built during the hackathon" section listing every file,
   the 3 Meta models (with IDs and prices), and the dates: October 26 to November 4, 2026
   (commits from October 31 to November 1, 2026).
+
+## Step 7: Explain-it-back check
+
+- `pipeline.check_understanding(concept, analogy, mapping, explanation)`: one Muse Spark text call
+  grades the learner's own explanation part by part (`got` / `partly` / `missed`), names any
+  misconception, gives short feedback, and picks the most important gap. No image, about $0.004.
+- `POST /check` in `main.py`. Guard: 10 checks per concept.
+- Page: a "Check yourself: explain it back" panel under the picture, with its own 🎤 button
+  (the voice code now fills whichever box it belongs to). The result lists every part with ✓ ~ ✗,
+  shows the last try's score for comparison, and offers "Show me a scene about …", which reuses the
+  `next_scene` follow-up aimed at the gap.
+- Tests: in Chromium with the Meta calls mocked, including a model reply with a skipped index, a
+  repeated index and a focus on a part already understood (the server corrects all three). The panel
+  fits a 390 px phone screen. Not yet tested against the live API.

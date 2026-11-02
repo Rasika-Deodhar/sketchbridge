@@ -69,8 +69,24 @@
   .option.cached::after { content: "instant"; position: absolute; top: 8px; right: 10px; font-size: .72rem; color: var(--muted); }
   .with-mic { display: flex; gap: 6px; }
   .with-mic input { flex: 1; }
-  #micBtn { padding: 10px 12px; background: transparent; color: var(--accent); }
-  #micBtn.rec { background: var(--warn); border-color: var(--warn); color: #fff; }
+  .mic { padding: 10px 12px; background: transparent; color: var(--accent); }
+  .mic.rec { background: var(--warn); border-color: var(--warn); color: #fff; }
+  .teach { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .teach textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+                    background: var(--bg); color: var(--ink); font: inherit; resize: vertical; }
+  .teach textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .teach .row { margin-top: 8px; }
+  .teach .tools { display: flex; gap: 8px; }
+  .verdict { margin-top: 12px; padding: 14px; border-radius: 10px; background: var(--soft); }
+  .verdict.gap { background: var(--bubble); }
+  .verdict p { margin: 6px 0; }
+  .parts { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; }
+  .parts li { display: grid; grid-template-columns: 22px 1fr; gap: 6px; font-size: .92rem; }
+  .parts .mark { font-weight: 700; text-align: center; }
+  .parts .got .mark { color: var(--accent); }
+  .parts .partly .mark, .parts .missed .mark { color: var(--warn); }
+  .parts .note { color: var(--muted); font-size: .85rem; }
+  .warnbox { padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: .92rem; }
   [hidden] { display: none !important; }
   @media (max-width: 720px) {
     form.ask { grid-template-columns: 1fr; }
@@ -93,7 +109,7 @@
         <label for="concept">What do you want to understand?</label>
         <div class="with-mic">
           <input type="text" id="concept" placeholder="What is backpropagation?" required maxlength="200">
-          <button type="button" id="micBtn" title="Ask by voice" aria-label="Ask by voice">🎤</button>
+          <button type="button" class="mic" id="micBtn" title="Ask by voice" aria-label="Ask by voice">🎤</button>
         </div>
       </div>
       <div>
@@ -133,6 +149,31 @@
       </div>
     </div>
 
+    <div class="teach" id="teach">
+      <h2>Check yourself: explain it back</h2>
+      <p class="muted" style="margin:0 0 8px">Close your eyes on the picture and explain the idea in your own words,
+        using the analogy or the real terms. Explaining it is how it sticks.</p>
+      <textarea id="teachInput" maxlength="2000"
+                placeholder="Say it like you're telling a friend…"></textarea>
+      <div class="row">
+        <span class="muted" id="teachHint">You'll see which parts you've got and what to look at again.</span>
+        <div class="tools">
+          <button type="button" class="mic" id="teachMic" title="Explain by voice" aria-label="Explain by voice">🎤</button>
+          <button type="button" id="teachBtn">Check my explanation</button>
+        </div>
+      </div>
+      <div class="verdict" id="verdict" hidden>
+        <strong id="verdictTitle"></strong>
+        <ul class="parts" id="verdictParts"></ul>
+        <div class="warnbox" id="verdictMisc" hidden></div>
+        <p id="verdictFeedback"></p>
+        <div class="row" style="justify-content:flex-start">
+          <button type="button" id="gapBtn" hidden></button>
+          <button type="button" class="ghost" id="retryBtn">Try explaining again</button>
+        </div>
+      </div>
+    </div>
+
     <h3>Still unclear? Ask anything</h3>
     <div class="chat" id="chat"></div>
     <div class="quick">
@@ -152,6 +193,7 @@ const $ = (id) => document.getElementById(id);
 const state = {
   concept: "", interest: "", shownDomains: [], spend: 0, demo: null,
   analogy: "", mapping: [], imageId: null, images: [], shownParts: [], history: [],
+  checks: [], gap: null,
 };
 
 function setStatus(text, isError = false) {
@@ -167,7 +209,7 @@ function addSpend(cost) {
 }
 
 function setBusy(busy) {
-  document.querySelectorAll("button, input").forEach((el) => (el.disabled = busy));
+  document.querySelectorAll("button, input, textarea").forEach((el) => (el.disabled = busy));
 }
 
 async function post(path, body) {
@@ -247,6 +289,7 @@ function showResult(r, option) {
     renderMapping();
     renderImages();
     $("chat").replaceChildren();
+    resetTeach();
     $("resultCard").hidden = false;
     $("resultCard").scrollIntoView({ behavior: "smooth" });
 }
@@ -339,6 +382,87 @@ async function followup(message, action = null) {
   }
 }
 
+// ---- Explain it back: the learner says it in their own words, Muse Spark grades it --
+const MARKS = { got: "✓", partly: "~", missed: "✗" };
+
+function resetTeach() {
+  state.checks = [];
+  state.gap = null;
+  $("teachInput").value = "";
+  $("verdict").hidden = true;
+  $("teachHint").textContent = "You'll see which parts you've got and what to look at again.";
+}
+
+async function checkUnderstanding() {
+  const explanation = $("teachInput").value.trim();
+  if (explanation.split(/\s+/).length < 3) {
+    setStatus("Write (or say) a sentence or two in your own words first.", true);
+    return;
+  }
+  setBusy(true);
+  setStatus("Reading your explanation…");
+  try {
+    const r = await post("/check", {
+      concept: state.concept, analogy: state.analogy, mapping: state.mapping, explanation,
+    });
+    addSpend(r.cost_usd);
+    state.checks.push(r.got);
+    renderVerdict(r);
+    setStatus("");
+  } catch (err) {
+    setStatus(err.message, true);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function renderVerdict(r) {
+  const tries = state.checks.length;
+  const before = tries > 1 ? ` (last try: ${state.checks[tries - 2]} of ${r.total})` : "";
+  $("verdictTitle").textContent = r.understood
+    ? `You've got it: all ${r.total} parts${before} 🎉`
+    : `You explained ${r.got} of ${r.total} parts${before}`;
+  $("verdict").classList.toggle("gap", !r.understood);
+
+  const list = $("verdictParts");
+  list.replaceChildren();
+  for (const p of r.parts) {
+    const li = document.createElement("li");
+    li.className = p.status;
+    const mark = document.createElement("span");
+    mark.className = "mark";
+    mark.textContent = MARKS[p.status];
+    mark.title = p.status;
+    const body = document.createElement("span");
+    body.textContent = p.concept_part;
+    if (p.note) {
+      const note = document.createElement("div");
+      note.className = "note";
+      note.textContent = p.note;
+      body.append(note);
+    }
+    li.append(mark, body);
+    list.append(li);
+  }
+  $("verdictMisc").hidden = !r.misconception;
+  $("verdictMisc").textContent = r.misconception ? `Watch out: ${r.misconception}` : "";
+  $("verdictFeedback").textContent = r.feedback;
+
+  state.gap = r.focus_part ? { analogy: r.focus_part, concept: r.focus_concept_part } : null;
+  $("gapBtn").hidden = !state.gap;
+  if (state.gap) $("gapBtn").textContent = `Show me a scene about "${state.gap.concept}"`;
+  $("verdict").hidden = false;
+  $("teachHint").textContent = `Try ${tries} · checks cost about $0.004 and make no pictures.`;
+}
+
+async function showGap() {
+  if (!state.gap) return;
+  // Reuse the next_scene follow-up, pointed at the part the learner missed.
+  const msg = `Show me a close-up scene of "${state.gap.analogy}" so I understand "${state.gap.concept}".`;
+  await followup(msg, "next_scene");
+  $("teachInput").focus();
+}
+
 // ---- Demo examples (pre-built by `python -m app.build_demo`) ----------------
 function openDemo(d) {
   state.demo = d;
@@ -397,7 +521,7 @@ async function toWav16k(blob) {
   return encodeWav(rendered.getChannelData(0), rate);
 }
 
-async function sendRecording(blob) {
+async function sendRecording(blob, target) {
   setBusy(true);
   setStatus("Turning your voice into text…");
   try {
@@ -407,9 +531,10 @@ async function sendRecording(blob) {
     if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
     addSpend(data.cost_usd);
     if (!data.text) throw new Error("I couldn't hear any words. Try again, a little closer to the mic.");
-    $("concept").value = data.text;
+    target.value = target.tagName === "TEXTAREA" && target.value.trim()
+      ? `${target.value.trim()} ${data.text}` : data.text;
     setStatus("");
-    $("concept").focus();
+    target.focus();
   } catch (err) {
     setStatus(err.message, true);
   } finally {
@@ -417,7 +542,7 @@ async function sendRecording(blob) {
   }
 }
 
-async function toggleRecording() {
+async function toggleRecording(btn, target) {
   if (recorder) { recorder.stop(); return; }
   let stream;
   try {
@@ -433,18 +558,22 @@ async function toggleRecording() {
     clearTimeout(recordTimer);
     stream.getTracks().forEach((t) => t.stop());
     recorder = null;
-    $("micBtn").classList.remove("rec");
-    $("micBtn").textContent = "🎤";
-    sendRecording(new Blob(chunks, { type: chunks[0]?.type || "audio/webm" }));
+    btn.classList.remove("rec");
+    btn.textContent = "🎤";
+    sendRecording(new Blob(chunks, { type: chunks[0]?.type || "audio/webm" }), target);
   };
   recorder.start();
-  $("micBtn").classList.add("rec");
-  $("micBtn").textContent = "■";
-  setStatus("Listening… say your question, then press ■ (stops by itself after 30 seconds).");
+  btn.classList.add("rec");
+  btn.textContent = "■";
+  setStatus(`Listening… say your ${target === $("concept") ? "question" : "explanation"}, then press ■ (stops by itself after 30 seconds).`);
   recordTimer = setTimeout(() => recorder && recorder.stop(), MAX_RECORD_MS);
 }
 
-$("micBtn").addEventListener("click", toggleRecording);
+$("micBtn").addEventListener("click", () => toggleRecording($("micBtn"), $("concept")));
+$("teachMic").addEventListener("click", () => toggleRecording($("teachMic"), $("teachInput")));
+$("teachBtn").addEventListener("click", checkUnderstanding);
+$("gapBtn").addEventListener("click", showGap);
+$("retryBtn").addEventListener("click", () => { $("teachInput").select(); $("teachInput").focus(); });
 
 // ---- Wiring ----------------------------------------------------------------
 $("askForm").addEventListener("submit", (e) => {
