@@ -6,3 +6,4 @@
 | [meta-api.md](meta-api.md) | The exact Meta Model API details we use, and where they came from |
 | [decisions.md](decisions.md) | Each design decision and the reason for it |
 | [steps.md](steps.md) | A log of each build step: what was done and what was tested |
+| [deployment.md](deployment.md) | Hosting on Render and Hugging Face Spaces |

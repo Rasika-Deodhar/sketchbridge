@@ -58,6 +58,11 @@ Other commands (use `.venv\Scripts\python` on Windows):
 | `.venv/bin/python -m app.run "backpropagation" --interest "cooking"` | The whole pipeline in the terminal |
 | `.venv/bin/python -m app.build_demo` | Rebuilds any missing demo (`--only vaccine` for one, `--force` for all) |
 
+## Deploy
+
+Free hosting on **Render** or **Hugging Face Spaces**: see [documentations/deployment.md](documentations/deployment.md).
+The Hugging Face Space files are in `deploy/huggingface/`.
+
 ## Cost
 
 Each request prints its estimated cost; the page shows a running total.

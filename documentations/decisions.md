@@ -49,3 +49,7 @@
     wants mono 16-bit WAV. The page decodes and resamples with the Web Audio API, so the server needs no
     ffmpeg and no extra Python packages.
 27. **Voice fills the question box but does not submit it.** The learner can fix a misheard word first.
+28. **The Hugging Face Space downloads the code from GitHub at build time** instead of keeping a second
+    copy. The Space holds only a Dockerfile and its README, and "Factory rebuild" picks up new commits.
+29. **Picture types are set explicitly** (`image/webp`). Slim Linux images, as used on Docker and Render,
+    may not know `.webp` and would send pictures as generic data.
