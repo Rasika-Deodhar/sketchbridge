@@ -10,17 +10,24 @@ downloads, no GPU, no training.
 
 ## How it works
 
-```
-question + domain ──▶ 3 analogy options ──▶ you pick one
-                                              │
-              analogy + mapping + image prompt (Muse Spark)
-                                              │
-                      draw the picture (Muse Image)
-                                              │
-        check the picture against the mapping (Muse Spark, vision)
-                    passes? done : redraw once with fixes
-                                              │
-   follow-ups: answer · simplify · edit picture · next scene (Muse Spark decides)
+```mermaid
+flowchart TD
+    A["Question + domain<br/>e.g. 'What is backpropagation?' + Restaurant"] --> B["3 analogy options<br/>(Muse Spark)"]
+    B --> C{"You pick one"}
+    C -- "Try another" --> B
+    C --> D["Analogy + mapping + image prompt<br/>(Muse Spark)"]
+    D --> E["Draw the picture<br/>(Muse Image)"]
+    E --> F{"Check picture against mapping<br/>(Muse Spark, vision)"}
+    F -- passes --> G["Show analogy + picture"]
+    F -- "fails (first time)" --> H["Redraw once with fixes<br/>(Muse Image)"]
+    H --> G
+    G --> I{"Follow-up?<br/>Muse Spark decides the action"}
+    I -- answer --> J["Answer the question"]
+    I -- simplify --> K["Simpler explanation"]
+    I -- "edit picture" --> L["Edit the picture<br/>(Muse Image)"]
+    I -- "next scene" --> M["Draw the next scene<br/>(Muse Image)"]
+    J & K & L & M --> G
+    V["Voice question<br/>(Muse Voice Transcribe)"] -.-> A
 ```
 
 More detail is in [documentations/](documentations/): architecture, API facts, every decision, and a build log.
@@ -57,6 +64,11 @@ Other commands (use `.venv\Scripts\python` on Windows):
 | `.venv/bin/python -m app.smoke_test` | Calls each Meta function once to check your key works (about $0.015) |
 | `.venv/bin/python -m app.run "backpropagation" --interest "cooking"` | The whole pipeline in the terminal |
 | `.venv/bin/python -m app.build_demo` | Rebuilds any missing demo (`--only vaccine` for one, `--force` for all) |
+
+## Deploy
+
+Free hosting on **Render** or **Hugging Face Spaces**: see [documentations/deployment.md](documentations/deployment.md).
+The Hugging Face Space files are in `deploy/huggingface/`.
 
 ## Cost
 

@@ -132,12 +132,17 @@ def followup(body: FollowupIn):
     )))
 
 
+IMAGE_TYPES = {".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg"}
+
+
 @app.get("/image/{image_id}")
 def image(image_id: str):
     try:
-        return FileResponse(pipeline.image_file(image_id))
+        path = pipeline.image_file(image_id)
     except ValueError as exc:
         raise HTTPException(404, str(exc)) from exc
+    # Set the type explicitly: slim Linux images (Docker, Render) may not know .webp.
+    return FileResponse(path, media_type=IMAGE_TYPES.get(path.suffix, "application/octet-stream"))
 
 
 @app.get("/demos")
