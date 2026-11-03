@@ -425,7 +425,7 @@ Images: no words or letters, except at most 3 very short labels."""
 
 # ------------------------------------------------------------ explain it back (check understanding)
 
-MAX_CHECKS_PER_CONCEPT = 10  # text only, about $0.004 each
+MAX_CHECKS_PER_CONCEPT = 10  # text only, about $0.01 each
 _checks: dict[str, int] = {}
 CHECK_STATUSES = ["got", "partly", "missed"]
 
@@ -495,7 +495,9 @@ focus_index: the number of the most important part they missed or got partly, or
 Judge understanding, not wording. Do not reward copying the analogy text without the idea."""
 
     budget = Budget()
-    data = budget.add(mc.chat(prompt, schema=UNDERSTANDING_SCHEMA, schema_name="understanding")).json()
+    # Medium effort: at the default it took 30 s (the gateway limit); medium took 17 s and graded the same.
+    data = budget.add(mc.chat(prompt, schema=UNDERSTANDING_SCHEMA, schema_name="understanding",
+                              effort="medium")).json()
 
     # Rebuild the list in mapping order so a skipped or repeated index can't misalign the page.
     by_index: dict[int, dict] = {}

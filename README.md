@@ -91,7 +91,7 @@ Each request prints its estimated cost; the page shows a running total.
 | 3 options | about $0.008 |
 | Analogy + picture + check | about $0.025 (about $0.05 if it redraws) |
 | Follow-up: answer | about $0.009 |
-| Explain-it-back check | about $0.004 |
+| Explain-it-back check | about $0.01 |
 | Connect the dots | about $0.012 (free on the ready-made examples, and when replayed) |
 | Follow-up: simplify / edit / next scene | about $0.02 |
 | Voice question (a few seconds) | about $0.0002 |
@@ -132,6 +132,7 @@ No Contributor variants, open-weight models, or local models were used.
 | `web/index.html` | The one-page app (no framework): question, domain, mic button, options, result card, explain-it-back check, follow-up chat |
 | `render.yaml` | Render Blueprint: free plan, one worker, deploy only after CI passes |
 | `.github/workflows/ci.yml` | GitHub Actions: runs the tests on every push and pull request |
+| `tools/demo_video/` | Records the demo video from the real app (Playwright + ffmpeg) |
 | `tests/test_app.py` | Offline tests (no key, no cost): routes, demos, validation, access code, explain-it-back, progress streaming, connect the dots |
 | `cache/.gitkeep` | Keeps the `cache/` folder in git |
 | `cache/demos.json` | The 5 demos: options, analogy, mapping, check result, a saved "simplify" answer, and connect-the-dots |
@@ -157,6 +158,7 @@ No Contributor variants, open-weight models, or local models were used.
 7. Explain-it-back check: the learner explains the idea, Muse Spark grades each mapping part
 8. Deployment on Render with GitHub Actions CI and an access code
 9. Progress bar with live stages, and connect the dots
+10. Light/dark toggle, a fix for slow replies (HTTP 502), and the demo video
 
 API details came from Meta's official cookbook
 ([meta-models/meta-model-cookbook](https://github.com/meta-models/meta-model-cookbook)).

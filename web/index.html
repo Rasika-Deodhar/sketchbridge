@@ -860,7 +860,7 @@ function renderVerdict(r) {
   $("gapBtn").hidden = !state.gap;
   if (state.gap) $("gapBtn").textContent = `Show me a scene about "${state.gap.concept}"`;
   $("verdict").hidden = false;
-  $("teachHint").textContent = `Try ${tries} · checks cost about $0.004 and make no pictures.`;
+  $("teachHint").textContent = `Try ${tries} · checks cost about $0.01 and make no pictures.`;
 }
 
 async function showGap() {
