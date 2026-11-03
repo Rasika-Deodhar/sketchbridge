@@ -74,7 +74,57 @@
       "images_used": 1,
       "cost_usd": 0.0199
     },
-    "cost_usd": 0.0561
+    "cost_usd": 0.069,
+    "connect": {
+      "steps": [
+        {
+          "step": 1,
+          "concept_part": "The neural network's prediction from a forward pass",
+          "analogy_part": "The finished bowl of soup",
+          "visible": true,
+          "x": 0.827,
+          "y": 0.63,
+          "says": "The final bowl is served, the network's forward-pass prediction, which must be checked next."
+        },
+        {
+          "step": 2,
+          "concept_part": "The loss function measuring how far off the prediction is",
+          "analogy_part": "Tasting the soup to see how too salty it is",
+          "visible": true,
+          "x": 0.84,
+          "y": 0.45,
+          "says": "Chef tastes saltiness, the loss function measuring error, to send feedback backward."
+        },
+        {
+          "step": 3,
+          "concept_part": "Propagating the error backward through the network layers",
+          "analogy_part": "Walking backward down the prep line from final bowl to first cook",
+          "visible": true,
+          "x": 0.505,
+          "y": 0.125,
+          "says": "Feedback travels back down the line, error propagating through layers, to assign blame."
+        },
+        {
+          "step": 4,
+          "concept_part": "Calculating each weight's share of the error using gradients",
+          "analogy_part": "Telling each cook how much their step contributed to the saltiness",
+          "visible": true,
+          "x": 0.425,
+          "y": 0.53,
+          "says": "Each cook learns salty contribution, gradients showing each weight's share, guiding small fixes."
+        },
+        {
+          "step": 5,
+          "concept_part": "Updating weights slightly to reduce future error",
+          "analogy_part": "Each cook adjusting their seasoning a little for the next pot",
+          "visible": true,
+          "x": 0.38,
+          "y": 0.6,
+          "says": "Each cook tweaks seasoning, weights update slightly, so next soup prediction improves."
+        }
+      ],
+      "summary": "Three cooks pass soup forward to a final bowl that the chef tastes for saltiness. The salty error travels backward along the line so each cook learns his share and tweaks seasoning. Together forward prediction, loss check, and backward updates steadily improve the next pot."
+    }
   },
   {
     "slug": "hash-table",
@@ -151,7 +201,57 @@
       "images_used": 1,
       "cost_usd": 0.0203
     },
-    "cost_usd": 0.0804
+    "cost_usd": 0.0918,
+    "connect": {
+      "steps": [
+        {
+          "step": 1,
+          "concept_part": "key you want to look up",
+          "analogy_part": "book title written on a request slip",
+          "visible": true,
+          "x": 0.41,
+          "y": 0.445,
+          "says": "You start with book title slip, the key, which is fed into the formula to get a drawer number."
+        },
+        {
+          "step": 2,
+          "concept_part": "hash function that converts a key to a slot number",
+          "analogy_part": "formula that turns a book title into a drawer number",
+          "visible": true,
+          "x": 0.497,
+          "y": 0.465,
+          "says": "The formula, the hash function, turns the title into a drawer number pointing straight to one wall section."
+        },
+        {
+          "step": 3,
+          "concept_part": "array of buckets where data is stored",
+          "analogy_part": "wall of small wooden catalog drawers",
+          "visible": true,
+          "x": 0.678,
+          "y": 0.419,
+          "says": "You walk to that spot in the drawer wall, the bucket array, to find its stacked cards."
+        },
+        {
+          "step": 4,
+          "concept_part": "collision when two keys map to the same bucket",
+          "analogy_part": "two different titles assigned to the same drawer with their cards stacked together",
+          "visible": true,
+          "x": 0.646,
+          "y": 0.608,
+          "says": "Even two titles sharing one drawer, a collision, keep their cards side by side to pick the right one."
+        },
+        {
+          "step": 5,
+          "concept_part": "value stored for each key",
+          "analogy_part": "index card inside the drawer showing where the book is on the shelf",
+          "visible": true,
+          "x": 0.635,
+          "y": 0.58,
+          "says": "You pull your title's card, the stored value, achieving instant book lookup without searching all drawers."
+        }
+      ],
+      "summary": "The title key is hashed by the formula to a drawer number in the catalog wall. You jump directly to that bucket and sort through any stacked colliding cards. Pulling the matching card gives the stored value, so lookup is fast."
+    }
   },
   {
     "slug": "compound-interest",
@@ -224,7 +324,48 @@
       "images_used": 1,
       "cost_usd": 0.0196
     },
-    "cost_usd": 0.0486
+    "cost_usd": 0.0589,
+    "connect": {
+      "steps": [
+        {
+          "step": 1,
+          "concept_part": "initial deposit of money",
+          "analogy_part": "first tomato vine planted",
+          "visible": true,
+          "x": 0.43,
+          "y": 0.4,
+          "says": "You plant the first tomato vine like making an initial deposit, which will grow the first crop of tomatoes."
+        },
+        {
+          "step": 2,
+          "concept_part": "interest earned in one period",
+          "analogy_part": "tomatoes harvested that season",
+          "visible": true,
+          "x": 0.56,
+          "y": 0.705,
+          "says": "That vine grows ripe tomatoes, like interest earned in one period, providing seeds for planting more vines."
+        },
+        {
+          "step": 3,
+          "concept_part": "reinvesting interest to earn more",
+          "analogy_part": "saving seeds from harvest to plant more vines",
+          "visible": true,
+          "x": 0.73,
+          "y": 0.78,
+          "says": "You plant seedlings from saved seeds, like reinvesting interest, so more vines start growing alongside the first."
+        },
+        {
+          "step": 4,
+          "concept_part": "accelerating growth over many periods",
+          "analogy_part": "expanding garden with more vines yielding larger harvests each season",
+          "visible": true,
+          "x": 0.35,
+          "y": 0.83,
+          "says": "More vines together yield bigger harvests each season, showing how compound growth accelerates wealth over many periods."
+        }
+      ],
+      "summary": "The first vine produces tomatoes that provide seeds to plant more vines. As those extra seedlings grow alongside the original, each season produces ever-larger harvests, just as reinvested interest makes money grow faster over time."
+    }
   },
   {
     "slug": "photosynthesis",
@@ -301,7 +442,57 @@
       "images_used": 1,
       "cost_usd": 0.0194
     },
-    "cost_usd": 0.0529
+    "cost_usd": 0.0652,
+    "connect": {
+      "steps": [
+        {
+          "step": 1,
+          "concept_part": "leaf with chlorophyll",
+          "analogy_part": "solar panel factory building",
+          "visible": true,
+          "x": 0.51,
+          "y": 0.64,
+          "says": "The factory building, the leaf with chlorophyll, provides the workplace where sunlight power can be used for building sugar."
+        },
+        {
+          "step": 2,
+          "concept_part": "sunlight",
+          "analogy_part": "electricity from rooftop solar panels",
+          "visible": true,
+          "x": 0.67,
+          "y": 0.43,
+          "says": "Rooftop panels capture electricity, the sunlight, to power the factory to combine water and carbon dioxide next."
+        },
+        {
+          "step": 3,
+          "concept_part": "water and carbon dioxide",
+          "analogy_part": "raw material deliveries by water pipe and air vent",
+          "visible": true,
+          "x": 0.475,
+          "y": 0.74,
+          "says": "Pipes and vents deliver water and carbon dioxide, the raw materials, into the factory to be built into sugar."
+        },
+        {
+          "step": 4,
+          "concept_part": "sugar food for the plant",
+          "analogy_part": "boxed sugar cube products made inside",
+          "visible": true,
+          "x": 0.442,
+          "y": 0.773,
+          "says": "Workers box sugar cubes inside, the plant food, storing energy before leftover clean exhaust is released."
+        },
+        {
+          "step": 5,
+          "concept_part": "oxygen released to the air",
+          "analogy_part": "clean puffs from the chimney",
+          "visible": true,
+          "x": 0.378,
+          "y": 0.146,
+          "says": "Chimney puffs release oxygen to the air, clean exhaust, completing photosynthesis feeding the plant and freshening air."
+        }
+      ],
+      "summary": "The leaf works like a solar-panel factory powered by sunlight. It takes in water and carbon dioxide and uses solar power to build sugar food for the plant. Leftover oxygen puffs out as clean exhaust, completing photosynthesis."
+    }
   },
   {
     "slug": "vaccine",
@@ -378,6 +569,56 @@
       "images_used": 1,
       "cost_usd": 0.0191
     },
-    "cost_usd": 0.052
+    "cost_usd": 0.0635,
+    "connect": {
+      "steps": [
+        {
+          "step": 1,
+          "concept_part": "Vaccine with harmless germ parts",
+          "analogy_part": "Fire drill using harmless fake smoke",
+          "visible": true,
+          "x": 0.28,
+          "y": 0.7,
+          "says": "The drill releases harmless fake smoke, like a vaccine with germ parts, so the security team can start practicing."
+        },
+        {
+          "step": 2,
+          "concept_part": "Immune system cells",
+          "analogy_part": "Building security team",
+          "visible": true,
+          "x": 0.52,
+          "y": 0.565,
+          "says": "The building security team, meaning immune system cells, gathers during the drill to learn the emergency plan."
+        },
+        {
+          "step": 3,
+          "concept_part": "Learning and remembering the germ",
+          "analogy_part": "Guards practicing and memorizing exits and routes",
+          "visible": true,
+          "x": 0.55,
+          "y": 0.635,
+          "says": "Guards memorize exits and routes, like cells remembering the germ, preparing them for a future real fire."
+        },
+        {
+          "step": 4,
+          "concept_part": "Real infection with dangerous germ",
+          "analogy_part": "A real fire later in the building",
+          "visible": false,
+          "x": 0.4,
+          "y": 0.415,
+          "says": "A real fire later breaks out, representing real infection with the dangerous germ, testing the earlier practice."
+        },
+        {
+          "step": 5,
+          "concept_part": "Quick defense that prevents severe illness",
+          "analogy_part": "Fast, practiced emergency response to stop the fire",
+          "visible": false,
+          "x": 0.82,
+          "y": 0.5,
+          "says": "The practiced fast response stops the fire quickly, like quick defense preventing severe illness and keeping the body safe."
+        }
+      ],
+      "summary": "A vaccine acts like a fire drill with fake smoke, letting the immune security team practice and memorize the plan. When a real germ-fire appears later, the trained team responds fast to stop severe illness."
+    }
   }
 ]

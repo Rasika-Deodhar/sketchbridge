@@ -157,8 +157,11 @@ def _sniff_mime(data: bytes) -> str:
 _EXT = {"image/webp": ".webp", "image/png": ".png", "image/jpeg": ".jpg"}
 
 
-def _chat(content, schema: dict | None, schema_name: str) -> Reply:
+def _chat(content, schema: dict | None, schema_name: str, effort: str | None = None) -> Reply:
     body = {"model": TEXT_MODEL, "messages": [{"role": "user", "content": content}]}
+    if effort:
+        # minimal < low < medium < high: less thinking is faster and cheaper (cookbook recipe 06).
+        body["reasoning_effort"] = effort
     if schema:
         body["response_format"] = _schema_format(schema, schema_name)
     data = _post("/chat/completions", body)
@@ -173,20 +176,22 @@ def _chat(content, schema: dict | None, schema_name: str) -> Reply:
 # ---------------------------------------------------------------- public API
 
 
-def chat(prompt: str, schema: dict | None = None, schema_name: str = "reply") -> Reply:
+def chat(prompt: str, schema: dict | None = None, schema_name: str = "reply",
+         effort: str | None = None) -> Reply:
     """Ask Muse Spark a text question. Pass `schema` to force a JSON shape."""
-    return _chat(prompt, schema, schema_name)
+    return _chat(prompt, schema, schema_name, effort)
 
 
 def chat_with_image(
-    prompt: str, image_path: str, schema: dict | None = None, schema_name: str = "reply"
+    prompt: str, image_path: str, schema: dict | None = None, schema_name: str = "reply",
+    effort: str | None = None,
 ) -> Reply:
     """Ask Muse Spark a question about a local image file."""
     content = [
         {"type": "text", "text": prompt},
         {"type": "image_url", "image_url": {"url": _image_data_url(image_path)}},
     ]
-    return _chat(content, schema, schema_name)
+    return _chat(content, schema, schema_name, effort)
 
 
 def draw(prompt: str, out_path_without_ext: str, reference_image: str | None = None) -> Reply:

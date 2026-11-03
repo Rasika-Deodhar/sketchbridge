@@ -87,6 +87,39 @@
   .parts .partly .mark, .parts .missed .mark { color: var(--warn); }
   .parts .note { color: var(--muted); font-size: .85rem; }
   .warnbox { padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: .92rem; }
+  /* progress toast */
+  .toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 10;
+           width: min(520px, calc(100% - 32px)); background: var(--card); border: 1px solid var(--line);
+           border-radius: 12px; padding: 12px 14px; box-shadow: 0 6px 24px rgba(0,0,0,.18); }
+  .toast-row { display: flex; justify-content: space-between; gap: 10px; font-size: .95rem; }
+  .toast-time { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bar { height: 8px; border-radius: 999px; background: var(--soft); overflow: hidden; margin: 8px 0 6px; }
+  .bar .fill { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .25s linear; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; font-size: .78rem; color: var(--muted); }
+  .chips span::before { content: "○ "; }
+  .chips span.now { color: var(--accent); font-weight: 600; }
+  .chips span.now::before { content: "● "; }
+  .chips span.done::before { content: "✓ "; color: var(--accent); }
+  /* connect the dots */
+  .stage { position: relative; }
+  .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .stage .seg { stroke: var(--warn); stroke-linecap: round; fill: none; stroke-dasharray: 1; stroke-dashoffset: 1;
+                transition: stroke-dashoffset .7s ease; }
+  .stage .seg.drawn { stroke-dashoffset: 0; }
+  .dot { position: absolute; transform: translate(-50%, -50%); width: 30px; height: 30px; padding: 0; border-radius: 50%;
+         background: var(--card); color: var(--ink); border: 2px solid var(--warn); font-weight: 700; font-size: .9rem;
+         display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .dot.done { background: var(--warn); color: #fff; }
+  .dot.on { background: var(--warn); color: #fff; transform: translate(-50%, -50%) scale(1.25);
+            box-shadow: 0 0 0 6px color-mix(in srgb, var(--warn) 30%, transparent); }
+  .dot.hidden-part { border-style: dashed; }
+  .walk { margin-top: 10px; padding: 12px 14px; border-radius: 10px; background: var(--soft); }
+  .walk .stepline { font-size: .8rem; color: var(--muted); }
+  .walk .pair { font-weight: 600; margin: 2px 0 4px; }
+  .walk p { margin: 4px 0; }
+  .walk .controls { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .walk .controls button { padding: 6px 12px; font-size: .88rem; }
+  @media (prefers-reduced-motion: reduce) { .stage .seg, .bar .fill { transition: none; } }
   [hidden] { display: none !important; }
   @media (max-width: 720px) {
     form.ask { grid-template-columns: 1fr; }
@@ -145,9 +178,25 @@
   <section class="card" id="resultCard" hidden>
     <div class="result">
       <div>
-        <img class="main" id="mainImg" alt="">
+        <div class="stage" id="stage">
+          <img class="main" id="mainImg" alt="">
+          <svg id="dotPath" aria-hidden="true"></svg>
+          <div id="dots"></div>
+        </div>
         <div class="caption" id="imgCaption"></div>
         <div class="strip" id="strip"></div>
+        <div class="walk" id="walk" hidden aria-live="polite">
+          <div class="stepline" id="walkStep"></div>
+          <div class="pair" id="walkPair"></div>
+          <p id="walkSays"></p>
+          <div class="controls">
+            <button type="button" class="ghost" id="walkPrev">◀ Back</button>
+            <button type="button" id="walkPlay">▶ Play</button>
+            <button type="button" class="ghost" id="walkNext">Next ▶</button>
+            <button type="button" class="ghost" id="walkScene" hidden>See its close-up</button>
+            <button type="button" class="ghost" id="walkWhole" hidden>↩ Whole picture</button>
+          </div>
+        </div>
       </div>
       <div>
         <h2 id="resultTitle"></h2>
@@ -189,6 +238,7 @@
     <div class="quick">
       <button class="ghost" type="button" data-action="simplify">I don't get it, simplify</button>
       <button class="ghost" type="button" data-action="next_scene">Show the next scene</button>
+      <button class="ghost" type="button" id="connectBtn">🔗 Connect the dots</button>
     </div>
     <form class="follow" id="followForm" style="margin-top:10px">
       <input type="text" id="followInput" maxlength="500"
@@ -198,12 +248,19 @@
   </section>
 </main>
 
+<div class="toast" id="toast" hidden role="status" aria-live="polite">
+  <div class="toast-row"><span id="toastText"></span><span class="toast-time" id="toastTime"></span></div>
+  <div class="bar"><div class="fill" id="toastFill"></div></div>
+  <div class="chips" id="toastChips"></div>
+</div>
+
 <script>
 const $ = (id) => document.getElementById(id);
 const state = {
   concept: "", interest: "", shownDomains: [], spend: 0, demo: null,
   analogy: "", mapping: [], imageId: null, images: [], shownParts: [], history: [],
   checks: [], gap: null,
+  baseImageId: null, dots: null, walk: 0, walkTimer: null,
 };
 
 function setStatus(text, isError = false) {
@@ -261,19 +318,129 @@ async function paidFetch(path, init) {
   throw new Error("That access code didn't work.");
 }
 
+function errorText(data, status) {
+  return data.detail ? JSON.stringify(data.detail).replace(/^"|"$/g, "") : `HTTP ${status}`;
+}
+
 async function post(path, body) {
   const res = await paidFetch(path, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail ? JSON.stringify(data.detail).replace(/^"|"$/g, "") : `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(errorText(data, res.status));
   return data;
 }
+
+// Long requests stream one JSON line per stage, so the progress bar shows what is really happening.
+async function postStream(path, body, onStage) {
+  const res = await paidFetch(path, {
+    method: "POST", body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json", "Accept": "application/x-ndjson" },
+  });
+  if (!res.ok) throw new Error(errorText(await res.json().catch(() => ({})), res.status));
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "", result = null;
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let cut;
+    while ((cut = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, cut).trim();
+      buffer = buffer.slice(cut + 1);
+      if (!line) continue;
+      const event = JSON.parse(line);
+      if (event.type === "progress") onStage(event.stage);
+      else if (event.type === "error") throw new Error(event.detail);
+      else if (event.type === "result") result = event;
+    }
+  }
+  if (!result) throw new Error("The connection closed before the picture was ready. Please try again.");
+  return result;
+}
+
+// ---- Progress toast ----------------------------------------------------------
+// Each stage fills part of the bar. Inside a stage the bar eases toward the stage's end over its
+// usual duration, and never passes it, so it keeps moving without promising a finish time.
+const PLANS = {
+  options: { analogy: ["Thinking of 3 analogies", 0, 95, 8] },
+  explain: {
+    // Usual durations measured live: about 20 s each for the analogy, the drawing and the check.
+    analogy: ["Writing the analogy and planning the picture", 0, 25, 20],
+    draw: ["Drawing the picture", 25, 65, 20],
+    check: ["Checking the drawing against the analogy", 65, 85, 20],
+    redraw: ["The check asked for fixes, so it's redrawing", 85, 94, 20],
+    recheck: ["Checking the new drawing", 94, 98, 20],
+  },
+  followup: {
+    plan: ["Reading your message and the picture", 0, 35, 15],
+    draw: ["Drawing the new picture", 35, 95, 20],
+  },
+  check: { check: ["Reading your explanation", 0, 95, 12] },
+  connect: { connect: ["Finding each part in the picture and linking them", 0, 95, 18] },
+  transcribe: { listen: ["Turning your voice into text", 0, 95, 3] },
+};
+const CHIPS = { explain: ["analogy", "draw", "check"], followup: ["plan", "draw"] };
+const CHIP_NAMES = { analogy: "Analogy", draw: "Drawing", check: "Check", plan: "Plan" };
+const TITLE = document.title;
+const progress = { plan: null, stage: null, stageStart: 0, start: 0, timer: null, pct: 0 };
+
+function progressStart(kind, firstStage) {
+  progress.plan = kind;
+  progress.start = Date.now();
+  progress.pct = 0;
+  $("toastFill").style.width = "0%";
+  $("toast").hidden = false;
+  progressStage(firstStage || Object.keys(PLANS[kind])[0]);
+  clearInterval(progress.timer);
+  progress.timer = setInterval(progressTick, 250);
+}
+
+function progressStage(stage) {
+  const plan = PLANS[progress.plan];
+  if (!plan || !plan[stage]) return;
+  progress.stage = stage;
+  progress.stageStart = Date.now();
+  $("toastText").textContent = plan[stage][0] + "…";
+  document.title = `⏳ ${plan[stage][0]} · ${TITLE}`;
+  const chips = CHIPS[progress.plan] || [];
+  const at = chips.indexOf(stage === "redraw" ? "draw" : stage === "recheck" ? "check" : stage);
+  $("toastChips").replaceChildren(...chips.map((c, i) => {
+    const el = document.createElement("span");
+    el.textContent = CHIP_NAMES[c];
+    el.className = i < at ? "done" : i === at ? "now" : "";
+    return el;
+  }));
+  progressTick();
+}
+
+function progressTick() {
+  const [, from, to, secs] = PLANS[progress.plan][progress.stage];
+  const t = (Date.now() - progress.stageStart) / 1000;
+  const pct = from + (to - from) * (1 - Math.exp(-1.6 * t / secs));
+  progress.pct = Math.max(progress.pct, pct);
+  $("toastFill").style.width = `${progress.pct.toFixed(1)}%`;
+  const s = Math.round((Date.now() - progress.start) / 1000);
+  $("toastTime").textContent = s >= 1 ? `${s} s` : "";
+}
+
+function progressDone(ok = true) {
+  clearInterval(progress.timer);
+  if (!progress.plan) return;
+  progress.plan = null;
+  $("toastFill").style.width = "100%";
+  setTimeout(() => { if (!progress.plan) $("toast").hidden = true; }, ok ? 350 : 0);
+  // If the learner switched tabs while waiting, the tab title says it's ready.
+  document.title = document.hidden && ok ? `✓ Ready · ${TITLE}` : TITLE;
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && !progress.plan) document.title = TITLE; });
 
 // ---- Step 0: options -------------------------------------------------------
 async function loadOptions() {
   setBusy(true);
-  setStatus("Thinking of analogies…");
+  setStatus("");
+  progressStart("options");
   try {
     const data = await post("/options", {
       concept: state.concept, interest: state.interest || null, avoid_domains: state.shownDomains,
@@ -281,8 +448,9 @@ async function loadOptions() {
     addSpend(data.cost_usd);
     state.shownDomains.push(...data.options.map((o) => o.domain));
     renderOptions(data.options, data.rounds_left);
-    setStatus("");
+    progressDone();
   } catch (err) {
+    progressDone(false);
     setStatus(err.message, true);
   } finally {
     setBusy(false);
@@ -311,13 +479,15 @@ function renderOptions(options, roundsLeft, demo = null) {
 // ---- Steps 1 to 3: analogy, draw, check ------------------------------------
 async function explain(option) {
   setBusy(true);
-  setStatus(`Drawing "${option.domain}" and checking it… this usually takes 30 to 60 seconds.`);
+  setStatus("");
+  progressStart("explain");
   try {
-    const r = await post("/explain", { concept: state.concept, option });
+    const r = await postStream("/explain", { concept: state.concept, option }, progressStage);
     addSpend(r.cost_usd);
+    progressDone();
     showResult(r, option);
-    setStatus("");
   } catch (err) {
+    progressDone(false);
     setStatus(err.message, true);
   } finally {
     setBusy(false);
@@ -328,7 +498,13 @@ function showResult(r, option) {
     Object.assign(state, {
       analogy: r.analogy, mapping: r.mapping, imageId: r.image_id,
       images: [{ id: r.image_id, label: "First picture" }], shownParts: [], history: [],
+      baseImageId: r.image_id,
+      // Demos can carry a pre-built connect-the-dots, so it plays instantly and for free.
+      dots: state.demo && state.demo.result === r && state.demo.connect
+        ? { imageId: r.image_id, ...state.demo.connect } : null,
     });
+    stopWalk();
+    $("walk").hidden = true;
     $("resultTitle").textContent = `${state.concept} — ${option.domain}`;
     $("analogy").textContent = r.analogy;
     const passed = r.check && r.check.pass;
@@ -362,6 +538,8 @@ function renderImages() {
   $("mainImg").src = `/image/${encodeURIComponent(current.id)}`;
   $("mainImg").alt = `Analogy picture: ${current.label}`;
   $("imgCaption").textContent = current.label;
+  renderDots();
+  $("walkWhole").hidden = !state.dots || state.imageId === state.dots.imageId || $("walk").hidden;
   const strip = $("strip");
   strip.replaceChildren();
   if (state.images.length < 2) return;
@@ -374,7 +552,7 @@ function renderImages() {
     el.src = `/image/${encodeURIComponent(img.id)}`;
     el.alt = img.label;
     b.append(el);
-    b.addEventListener("click", () => { state.imageId = img.id; renderImages(); });
+    b.addEventListener("click", () => { stopWalk(); state.imageId = img.id; renderImages(); });
     strip.append(b);
   }
 }
@@ -397,8 +575,15 @@ function applyFollowup(r) {
   if (r.focus_part) state.shownParts.push(r.focus_part);
   if (r.image_id) {
     const labels = { simplify: "Simpler picture", edit: "Edited picture", next_scene: `Close-up: ${r.focus_part}` };
-    state.images.push({ id: r.image_id, label: labels[r.action] || "New picture" });
+    state.images.push({ id: r.image_id, label: labels[r.action] || "New picture", focus: r.focus_part || "" });
     state.imageId = r.image_id;
+    if (r.action !== "next_scene") {
+      // A new whole picture: old dot positions no longer fit it.
+      state.baseImageId = r.image_id;
+      state.dots = null;
+      stopWalk();
+      $("walk").hidden = true;
+    }
     renderImages();
   }
   addMsg("tutor", r.reply || "(done)");
@@ -414,17 +599,151 @@ async function followup(message, action = null) {
     return;
   }
   setBusy(true);
-  setStatus("Working on it… if a new picture is needed this takes up to a minute.");
+  setStatus("");
+  stopWalk();
+  progressStart("followup");
   try {
-    const r = await post("/followup", {
+    const r = await postStream("/followup", {
       concept: state.concept, analogy: state.analogy, mapping: state.mapping,
       image_id: state.imageId, message, action,
       shown_parts: state.shownParts, history: state.history.slice(-7, -1),
+    }, progressStage);
+    addSpend(r.cost_usd);
+    progressDone();
+    applyFollowup(r);
+  } catch (err) {
+    progressDone(false);
+    setStatus(err.message, true);
+  } finally {
+    setBusy(false);
+  }
+}
+
+// ---- Connect the dots: where each part is in the picture, in the order the idea works --
+const WALK_MS = 5000;
+const norm = (t) => (t || "").toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+
+function sceneFor(step) {
+  // A close-up made with "Show the next scene" for this part, if there is one.
+  const part = norm(step.analogy_part);
+  return state.images.find((i) => i.focus && (norm(i.focus) === part
+    || part.includes(norm(i.focus)) || norm(i.focus).includes(part)));
+}
+
+function placedDots() {
+  // Nudge dots that land almost on top of each other, so every number stays readable.
+  const out = [];
+  for (const s of state.dots.steps) {
+    let { x, y } = s;
+    for (let tries = 0; tries < 6 && out.some((o) => Math.hypot(o.x - x, (o.y - y) * 0.7) < 0.045); tries++) {
+      x = Math.min(0.97, Math.max(0.03, x + (tries % 2 ? -0.05 : 0.05)));
+      y = Math.min(0.97, Math.max(0.03, y + 0.035));
+    }
+    out.push({ ...s, x, y });
+  }
+  return out;
+}
+
+function renderDots() {
+  const box = $("dots"), svg = $("dotPath");
+  box.replaceChildren();
+  svg.replaceChildren();
+  if (!state.dots || state.imageId !== state.dots.imageId) return;
+  const img = $("mainImg");
+  const w = img.naturalWidth || 1500, h = img.naturalHeight || 1000;
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  svg.setAttribute("preserveAspectRatio", "none");
+  const dots = placedDots();
+  const at = state.walk;
+  dots.forEach((d, i) => {
+    if (i > 0) {
+      const p = dots[i - 1];
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", p.x * w); line.setAttribute("y1", p.y * h);
+      line.setAttribute("x2", d.x * w); line.setAttribute("y2", d.y * h);
+      line.setAttribute("pathLength", "1");
+      line.setAttribute("stroke-width", Math.max(4, w / 110));
+      line.classList.add("seg");
+      svg.append(line);
+      if (i <= at) requestAnimationFrame(() => requestAnimationFrame(() => line.classList.add("drawn")));
+    }
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "dot" + (i < at ? " done" : i === at ? " on" : "") + (d.visible ? "" : " hidden-part");
+    b.style.left = `${d.x * 100}%`;
+    b.style.top = `${d.y * 100}%`;
+    b.textContent = d.step;
+    b.title = `${d.step}. ${d.analogy_part} = ${d.concept_part}`;
+    b.setAttribute("aria-label", b.title);
+    b.addEventListener("click", () => { stopWalk(); showStep(i); });
+    box.append(b);
+  });
+}
+
+function showStep(i) {
+  const steps = state.dots.steps;
+  state.walk = Math.max(0, Math.min(i, steps.length - 1));
+  const s = steps[state.walk];
+  const last = state.walk === steps.length - 1;
+  $("walk").hidden = false;
+  $("walkStep").textContent = `Step ${s.step} of ${steps.length}` + (s.visible ? "" : " · not drawn in this picture");
+  $("walkPair").textContent = `${s.analogy_part}  →  ${s.concept_part}`;
+  $("walkSays").textContent = s.says + (last && state.dots.summary ? `\n\nThe whole picture: ${state.dots.summary}` : "");
+  $("walkSays").style.whiteSpace = "pre-line";
+  const scene = sceneFor(s);
+  $("walkScene").hidden = !scene;
+  if (scene) $("walkScene").onclick = () => { stopWalk(); state.imageId = scene.id; renderImages(); };
+  $("walkPrev").disabled = state.walk === 0;
+  $("walkNext").disabled = last;
+  if (state.imageId !== state.dots.imageId) state.imageId = state.dots.imageId;
+  renderImages();
+}
+
+function playWalk() {
+  if (state.walkTimer) { stopWalk(); return; }
+  if (state.walk >= state.dots.steps.length - 1) state.walk = -1;
+  $("walkPlay").textContent = "⏸ Pause";
+  const tick = () => {
+    if (state.walk >= state.dots.steps.length - 1) { stopWalk(); return; }
+    showStep(state.walk + 1);
+  };
+  tick();
+  state.walkTimer = setInterval(tick, WALK_MS);
+}
+
+function stopWalk() {
+  clearInterval(state.walkTimer);
+  state.walkTimer = null;
+  $("walkPlay").textContent = "▶ Play";
+}
+
+async function connectDots() {
+  const base = state.baseImageId;
+  if (state.dots && state.dots.imageId === base) {  // already linked: replay for free
+    state.imageId = base;
+    state.walk = -1;
+    playWalk();
+    return;
+  }
+  setBusy(true);
+  setStatus("");
+  stopWalk();
+  progressStart("connect");
+  try {
+    const r = await post("/connect", {
+      concept: state.concept, analogy: state.analogy, mapping: state.mapping, image_id: base,
+      scenes: state.images.filter((i) => i.focus).map((i) => i.focus),
     });
     addSpend(r.cost_usd);
-    applyFollowup(r);
-    setStatus("");
+    progressDone();
+    state.dots = { imageId: base, steps: r.steps, summary: r.summary };
+    state.imageId = base;
+    state.walk = -1;
+    if (r.summary) addMsg("tutor", `How it all connects: ${r.summary}`);
+    $("stage").scrollIntoView({ behavior: "smooth", block: "center" });
+    playWalk();
   } catch (err) {
+    progressDone(false);
     setStatus(err.message, true);
   } finally {
     setBusy(false);
@@ -449,16 +768,18 @@ async function checkUnderstanding() {
     return;
   }
   setBusy(true);
-  setStatus("Reading your explanation…");
+  setStatus("");
+  progressStart("check");
   try {
     const r = await post("/check", {
       concept: state.concept, analogy: state.analogy, mapping: state.mapping, explanation,
     });
     addSpend(r.cost_usd);
     state.checks.push(r.got);
+    progressDone();
     renderVerdict(r);
-    setStatus("");
   } catch (err) {
+    progressDone(false);
     setStatus(err.message, true);
   } finally {
     setBusy(false);
@@ -572,7 +893,8 @@ async function toWav16k(blob) {
 
 async function sendRecording(blob, target) {
   setBusy(true);
-  setStatus("Turning your voice into text…");
+  setStatus("");
+  progressStart("transcribe");
   try {
     const wav = await toWav16k(blob);
     const res = await paidFetch("/transcribe", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: wav });
@@ -584,7 +906,9 @@ async function sendRecording(blob, target) {
       ? `${target.value.trim()} ${data.text}` : data.text;
     setStatus("");
     target.focus();
+    progressDone();
   } catch (err) {
+    progressDone(false);
     setStatus(err.message, true);
   } finally {
     setBusy(false);
@@ -619,6 +943,12 @@ async function toggleRecording(btn, target) {
 }
 
 $("micBtn").addEventListener("click", () => toggleRecording($("micBtn"), $("concept")));
+$("connectBtn").addEventListener("click", connectDots);
+$("walkPlay").addEventListener("click", playWalk);
+$("walkPrev").addEventListener("click", () => { stopWalk(); showStep(state.walk - 1); });
+$("walkNext").addEventListener("click", () => { stopWalk(); showStep(state.walk + 1); });
+$("walkWhole").addEventListener("click", () => { state.imageId = state.dots.imageId; renderImages(); });
+$("mainImg").addEventListener("load", renderDots);
 $("teachMic").addEventListener("click", () => toggleRecording($("teachMic"), $("teachInput")));
 $("teachBtn").addEventListener("click", checkUnderstanding);
 $("gapBtn").addEventListener("click", showGap);

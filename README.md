@@ -31,8 +31,13 @@ flowchart TD
     I -- "edit picture" --> L["Edit the picture<br/>(Muse Image)"]
     I -- "next scene" --> M["Draw the next scene<br/>(Muse Image)"]
     J & K & L & M --> G
+    G --> CD["Connect the dots: numbered dots on the picture,<br/>joined in the order the idea works, with a walkthrough<br/>(Muse Spark, vision)"]
+    CD -. "links to close-ups" .-> M
     V["Voice question<br/>(Muse Voice Transcribe)"] -.-> A
 ```
+
+While a picture is being made, a progress bar at the bottom of the page shows the real stage
+(analogy, drawing, checking, redrawing) as the server reports it, with the seconds elapsed.
 
 More detail is in [documentations/](documentations/): architecture, API facts, every decision, and a build log.
 
@@ -87,11 +92,12 @@ Each request prints its estimated cost; the page shows a running total.
 | Analogy + picture + check | about $0.025 (about $0.05 if it redraws) |
 | Follow-up: answer | about $0.009 |
 | Explain-it-back check | about $0.004 |
+| Connect the dots | about $0.012 (free on the ready-made examples, and when replayed) |
 | Follow-up: simplify / edit / next scene | about $0.02 |
 | Voice question (a few seconds) | about $0.0002 |
 
 Guards: at most 2 images per request, 5 "Try another" rounds per concept, 15 follow-ups per concept,
-and 10 explain-it-back checks per concept.
+10 explain-it-back checks per concept, and 10 connect-the-dots per concept.
 
 ## Built during the hackathon
 
@@ -126,9 +132,9 @@ No Contributor variants, open-weight models, or local models were used.
 | `web/index.html` | The one-page app (no framework): question, domain, mic button, options, result card, explain-it-back check, follow-up chat |
 | `render.yaml` | Render Blueprint: free plan, one worker, deploy only after CI passes |
 | `.github/workflows/ci.yml` | GitHub Actions: runs the tests on every push and pull request |
-| `tests/test_app.py` | Offline tests (no key, no cost): routes, demos, validation, access code, explain-it-back |
+| `tests/test_app.py` | Offline tests (no key, no cost): routes, demos, validation, access code, explain-it-back, progress streaming, connect the dots |
 | `cache/.gitkeep` | Keeps the `cache/` folder in git |
-| `cache/demos.json` | The 5 demos: options, analogy, mapping, check result, and a saved "simplify" answer |
+| `cache/demos.json` | The 5 demos: options, analogy, mapping, check result, a saved "simplify" answer, and connect-the-dots |
 | `cache/demo-backpropagation.webp`, `cache/demo-backpropagation-simple.webp` | Backpropagation / Restaurant: picture and simpler picture |
 | `cache/demo-hash-table.webp`, `cache/demo-hash-table-simple.webp` | Hash table / Library |
 | `cache/demo-compound-interest.webp`, `cache/demo-compound-interest-simple.webp` | Compound interest / Gardening |
@@ -150,6 +156,7 @@ No Contributor variants, open-weight models, or local models were used.
 6. This README
 7. Explain-it-back check: the learner explains the idea, Muse Spark grades each mapping part
 8. Deployment on Render with GitHub Actions CI and an access code
+9. Progress bar with live stages, and connect the dots
 
 API details came from Meta's official cookbook
 ([meta-models/meta-model-cookbook](https://github.com/meta-models/meta-model-cookbook)).

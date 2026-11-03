@@ -15,10 +15,20 @@ from __future__ import annotations
 import re
 import time
 from pathlib import Path
+from typing import Callable
 
 from app import meta_client as mc
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / "cache"
+
+# Optional callback that reports which stage is running ("analogy", "draw", "check", ...).
+# The web server streams these to the page for its progress bar.
+Progress = Callable[[str], None] | None
+
+
+def _report(progress: Progress, stage: str) -> None:
+    if progress:
+        progress(stage)
 
 # ------------------------------------------------------------ cost guard
 
@@ -248,12 +258,16 @@ def _slug(text: str) -> str:
 # ------------------------------------------------------------ steps 1 to 3 together
 
 
-def explain(concept: str, option: dict) -> dict:
-    """Run analogy -> draw -> check (-> redraw once) for the chosen option."""
+def explain(concept: str, option: dict, progress: Progress = None) -> dict:
+    """Run analogy -> draw -> check (-> redraw once) for the chosen option.
+
+    Stages reported to `progress`: analogy, draw, check, and if the check fails, redraw, recheck.
+    """
     concept = concept.strip()
     if not concept:
         raise ValueError("Concept is empty.")
     budget = Budget()
+    _report(progress, "analogy")
     analogy = make_analogy(concept, option, budget)
 
     run_id = f"{_slug(concept)}-{int(time.time())}"
@@ -262,7 +276,9 @@ def explain(concept: str, option: dict) -> dict:
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
         attempts = attempt
+        _report(progress, "draw" if attempt == 1 else "redraw")
         image_path = draw_image(prompt, f"{run_id}-{attempt}", budget)
+        _report(progress, "check" if attempt == 1 else "recheck")
         check = check_image(image_path, analogy["mapping"], budget)
         if check.get("pass"):
             break
@@ -319,7 +335,7 @@ def image_file(image_id: str) -> Path:
 
 def followup(concept: str, analogy: str, mapping: list[dict], image_id: str, message: str,
              action: str | None = None, shown_parts: list[str] | None = None,
-             history: list[dict] | None = None) -> dict:
+             history: list[dict] | None = None, progress: Progress = None) -> dict:
     """Handle what the learner says after seeing the picture.
 
     Muse Spark looks at the current picture and the message and picks one action:
@@ -370,11 +386,15 @@ Actions:
 - edit: they ask to change the picture. image_prompt = the change to make, keeping everything else.
   reply = one sentence saying what changed.
 - next_scene: they want more, the next step, or a closer look. Pick one mapping part not shown yet
-  (focus_part = its analogy part). If the learner names a part, use that part even if it was shown. image_prompt = a NEW close-up view of that part in the same world,
-  style and characters: a different camera angle and composition, not a copy of the current picture. reply = 2 to 3 sentences explaining what this scene shows about the concept.
+  (focus_part = its analogy part). If the learner names a part, use that part even if it was shown.
+  image_prompt = a NEW close-up view of that part in the same world,
+  style and characters: a different camera angle and composition, not a copy of the current picture.
+  reply = 2 to 3 sentences: first one sentence linking this scene to the previous one (what led here),
+  then what this scene shows about the concept.
 Rules: new_analogy is "" unless action is simplify. focus_part is "" unless action is next_scene.
 Images: no words or letters, except at most 3 very short labels."""
 
+    _report(progress, "plan")
     plan = budget.add(mc.chat_with_image(prompt, str(current), schema=FOLLOWUP_SCHEMA,
                                          schema_name="followup")).json()
     chosen = action or plan.get("action", "answer")
@@ -396,6 +416,7 @@ Images: no words or letters, except at most 3 very short labels."""
         else:
             image_prompt = f"In the same art style and with the same characters as this picture: {image_prompt}"
         name = f"{_slug(concept)}-{int(time.time())}-{chosen.replace('_', '')}"
+        _report(progress, "draw")
         path = draw_image(image_prompt, name, budget, reference_image=str(current))
         result.update(image_path=path, image_id=Path(path).name)
     result.update(images_used=budget.images, cost_usd=round(budget.cost_usd, 4))
@@ -504,3 +525,106 @@ Judge understanding, not wording. Do not reward copying the analogy text without
         "focus_concept_part": parts[focus - 1]["concept_part"] if focus else "",
         "cost_usd": round(budget.cost_usd, 4),
     }
+
+
+# ------------------------------------------------------------ connect the dots (the whole picture)
+
+MAX_CONNECTS_PER_CONCEPT = 10  # text only, about $0.006 each
+_connects: dict[str, int] = {}
+GRID = 1000  # dot positions use a 0..1000 grid over the picture's width and height
+
+CONNECT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "steps": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "index": {"type": "integer"},
+                    "visible": {"type": "boolean"},
+                    "x": {"type": "number"},
+                    "y": {"type": "number"},
+                    "says": {"type": "string"},
+                },
+                "required": ["index", "visible", "x", "y", "says"],
+                "additionalProperties": False,
+            },
+        },
+        "summary": {"type": "string"},
+    },
+    "required": ["steps", "summary"],
+    "additionalProperties": False,
+}
+
+
+def connect_dots(concept: str, analogy: str, mapping: list[dict], image_id: str,
+                 scenes: list[str] | None = None) -> dict:
+    """Locate each mapping part in the picture and walk through them in the order the concept works.
+
+    One Muse Spark vision call ("perception grounding", as in Meta's cookbook) returns, for every part:
+    where it is in the picture (x, y on a 0..1000 grid), and one sentence on what happens there and how
+    it leads to the next part. The page draws numbered dots joined by a path and plays the walkthrough.
+    `scenes`: analogy parts that already have a close-up scene, so the story can point to them.
+    Text only: no new picture is made.
+    """
+    concept = concept.strip()
+    if not concept or not mapping:
+        raise ValueError("Nothing to connect yet.")
+    current = image_file(image_id)
+    key = _concept_key(concept)
+    if _connects.get(key, 0) >= MAX_CONNECTS_PER_CONCEPT:
+        raise LimitError(f"Connect-the-dots limit reached: {MAX_CONNECTS_PER_CONCEPT} per concept.")
+    _connects[key] = _connects.get(key, 0) + 1
+
+    pairs = "\n".join(f"{i}. {m['analogy_part']}  (stands for: {m['concept_part']})"
+                      for i, m in enumerate(mapping, start=1))
+    seen = ", ".join(scenes or []) or "none"
+    prompt = f"""The attached picture illustrates "{concept}" with this analogy: {analogy}
+
+Numbered parts (analogy part, and the concept part it stands for):
+{pairs}
+
+The learner has seen separate close-up scenes of: {seen}. Help them see how everything fits together.
+
+Return steps: one entry for EVERY numbered part, ordered the way the concept actually works
+(cause before effect, start to finish), not in list order.
+- index: the part's number
+- visible: true if the part can be seen in the picture
+- x, y: the CENTER of that part in the picture, on a 0 to {GRID} grid
+  (x = 0 left edge, {GRID} right edge; y = 0 top edge, {GRID} bottom edge). Look carefully and be precise.
+  If not visible, the best guess of where it would be.
+- says: ONE plain sentence, max 25 words: what happens at this part, in analogy words AND concept words,
+  and how it leads to the next step (the last step says what the whole process achieves).
+summary: 2 to 3 plain sentences giving the whole picture: how the parts work together as one process."""
+
+    budget = Budget()
+    # Low effort: on busy pictures the default thinking ran past the API gateway's 30 s limit (HTTP 502).
+    data = budget.add(mc.chat_with_image(prompt, str(current), schema=CONNECT_SCHEMA,
+                                         schema_name="connect", effort="low")).json()
+
+    # Keep the model's order, drop bad or repeated indexes, and add any part it skipped at the end.
+    steps, used = [], set()
+    for s in data.get("steps", []):
+        i = s.get("index")
+        if isinstance(i, int) and 1 <= i <= len(mapping) and i not in used:
+            used.add(i)
+            steps.append((i, s))
+    steps += [(i, {"visible": False, "x": GRID / 2, "y": GRID / 2, "says": ""})
+              for i in range(1, len(mapping) + 1) if i not in used]
+
+    def clamp(v) -> float:
+        try:
+            return round(min(max(float(v), 0.0), GRID) / GRID, 4)  # 0..1 for the page
+        except (TypeError, ValueError):
+            return 0.5
+
+    out = []
+    for n, (i, s) in enumerate(steps, start=1):
+        m = mapping[i - 1]
+        out.append({"step": n, "concept_part": m["concept_part"], "analogy_part": m["analogy_part"],
+                    "visible": bool(s.get("visible")), "x": clamp(s.get("x")), "y": clamp(s.get("y")),
+                    "says": (s.get("says") or "").strip()})
+    return {"image_id": image_id, "steps": out, "summary": data.get("summary", ""),
+            "cost_usd": round(budget.cost_usd, 4)}
+

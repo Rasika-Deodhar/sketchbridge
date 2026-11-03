@@ -60,14 +60,42 @@ The server rebuilds `parts` in mapping order, so a skipped or repeated index fro
 misalign the page. The page shows the score of the previous try next to the new one, so the learner
 sees progress. Guard: 10 checks per concept.
 
+## Connect the dots (the whole picture)
+
+After separate close-up scenes, learners can lose how the parts fit together. "Connect the dots" makes
+one Muse Spark vision call (`connect_dots`, low reasoning effort, about $0.012, no new image) on the
+current whole picture. This is "perception grounding", as in Meta's cookbook: for every mapping part it
+returns where the part is in the picture (x, y on a 0..1000 grid), whether it is visible, and one
+sentence on what happens there and how it leads to the next part, ordered the way the concept works.
+It also returns a 2 to 3 sentence summary.
+
+The page draws numbered dots joined by a path and plays a walkthrough (Back / Play / Next). A step whose
+part already has a close-up from "Show the next scene" links to it ("See its close-up"). Next scenes
+also start by saying how they follow from the previous one. Dots that land on top of each other are
+nudged apart. The server keeps the model's order but drops unknown or repeated parts, appends skipped
+ones, and clamps positions to the picture. The result is kept per picture, so replaying is free; the
+5 demos ship with it.
+
+## Progress
+
+`/explain` and `/followup` report their stages through a `progress` callback in the pipeline
+(`analogy`, `draw`, `check`, `redraw`, `recheck`; `plan`, `draw`). When the page sends
+`Accept: application/x-ndjson`, the server runs the request on a thread and streams one JSON line per
+stage, then the result (or an error with its HTTP status). Without that header the routes return plain
+JSON, so the command line and tests are unchanged. The page shows a toast with the current stage, a
+bar that eases through each stage's usual duration (measured live: about 20 s each for analogy,
+drawing and check), and the seconds elapsed. The tab title shows the stage, and says "Ready" if the
+learner switched tabs.
+
 ## Web routes (app/main.py)
 
 | Route | Does |
 | --- | --- |
 | `GET /` | serves `web/index.html` |
 | `POST /options` | step 0 |
-| `POST /explain` | steps 1 to 3 |
-| `POST /followup` | answer / simplify / edit / next_scene |
+| `POST /explain` | steps 1 to 3 (streams progress if asked) |
+| `POST /followup` | answer / simplify / edit / next_scene (streams progress if asked) |
+| `POST /connect` | connect the dots: each part's position and the walkthrough, in process order |
 | `POST /check` | the learner's own explanation -> which mapping parts they got, misconception, feedback |
 | `GET /image/{id}` | a picture from `cache/` (name checked against a strict pattern) |
 | `GET /demos` | the 5 cached demos |

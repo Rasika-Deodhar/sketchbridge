@@ -3,10 +3,11 @@
     python -m app.build_demo            build any demo that is not cached yet
     python -m app.build_demo --force    rebuild all 5
     python -m app.build_demo --only vaccine   rebuild one
+    python -m app.build_demo --connect  only add connect-the-dots to cached demos missing it
 
-For each concept it runs: options -> explain (option 1) -> one "simplify" follow-up,
-then saves pictures as cache/demo-<slug>*.webp and everything else in cache/demos.json.
-Costs about 5 to 6 cents per concept.
+For each concept it runs: options -> explain (option 1) -> one "simplify" follow-up ->
+connect the dots on the first picture, then saves pictures as cache/demo-<slug>*.webp and
+everything else in cache/demos.json. Costs about 6 to 7 cents per concept (connect alone: about 1 cent).
 """
 
 from __future__ import annotations
@@ -60,18 +61,44 @@ def build_one(slug: str, concept: str, interest: str) -> dict:
     simple.pop("image_path", None)
     print(f"  simplify: {simple['new_analogy'][:90]}...  ${simple['cost_usd']:.4f}")
 
-    return {"slug": slug, "concept": concept, "interest": interest, "options": options,
+    demo = {"slug": slug, "concept": concept, "interest": interest, "options": options,
             "chosen": chosen, "result": result, "simplify": simple, "cost_usd": round(total, 4)}
+    add_connect(demo)
+    return demo
+
+
+def add_connect(demo: dict) -> float:
+    """Store connect-the-dots for the demo's first picture, so it plays instantly on the page."""
+    r = demo["result"]
+    dots = pipeline.connect_dots(demo["concept"], r["analogy"], r["mapping"], r["image_id"])
+    demo["connect"] = {"steps": dots["steps"], "summary": dots["summary"]}
+    demo["cost_usd"] = round(demo.get("cost_usd", 0) + dots["cost_usd"], 4)
+    print(f"  connect: {len(dots['steps'])} steps  ${dots['cost_usd']:.4f}")
+    return dots["cost_usd"]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--force", action="store_true", help="rebuild demos that already exist")
     parser.add_argument("--only", help="build just this slug, e.g. vaccine")
+    parser.add_argument("--connect", action="store_true",
+                        help="only add connect-the-dots to cached demos that lack it")
     args = parser.parse_args()
 
     demos = {d["slug"]: d for d in json.loads(MANIFEST.read_text())} if MANIFEST.exists() else {}
     spent = 0.0
+    if args.connect:
+        for d in demos.values():
+            if "connect" not in d and (not args.only or d["slug"] == args.only):
+                print(f"[connect] {d['concept']}")
+                try:
+                    spent += add_connect(d)
+                except (mc.MetaError, pipeline.LimitError) as exc:
+                    print(f"  FAILED: {exc}  (run again later to retry this one)")
+                ordered = [demos[s] for s, _, _ in DEMOS if s in demos]
+                MANIFEST.write_text(json.dumps(ordered, indent=2, ensure_ascii=False))
+        print(f"\nSpent this run: ${spent:.4f}")
+        return 0 if all("connect" in d for d in demos.values()) else 1
     for slug, concept, interest in DEMOS:
         if args.only and slug != args.only:
             continue

@@ -114,3 +114,21 @@
   shows the code form; a wrong code is refused with a clear message; the right code goes through and is
   remembered after a reload; Cancel shows a message and leaves the page usable.
 - Not tested: a real deploy on Render, and the workflow running on GitHub (it runs on the next push).
+
+## Step 9: Progress bar and connect the dots
+
+- Progress: the pipeline reports stages through a `progress` callback; `/explain` and `/followup` stream
+  them as JSON lines when asked. The page shows a toast at the bottom (stage, bar, stage chips, seconds)
+  for every wait, including options, checks, connect and voice. The tab title shows the stage.
+- Connect the dots: `pipeline.connect_dots` + `POST /connect`, numbered dots with an animated path and a
+  walkthrough on the picture, links to matching close-ups, and next scenes that say how they follow on.
+  `meta_client` can now pass `reasoning_effort`.
+- Demos: `python -m app.build_demo --connect` added connect-the-dots to all 5 demos ($0.058).
+- Tests: 12 offline tests pass (new: streamed stages and errors, connect-the-dots repair, `/connect`
+  checks). Live in Chromium ($0.085): "How does a refrigerator keep food cold?" streamed analogy (20 s),
+  drawing (17 s), check (21 s), redraw and recheck; next scene linked back to the first picture; connect
+  placed 4 dots on the right objects and linked step 2 to its close-up. The demo walkthrough made 0 API
+  calls. Fits a 390 px screen, no browser errors.
+- Found: at default reasoning effort, connect on the backpropagation picture failed twice with HTTP 502
+  after 30 s; low effort fixed it.
+
