@@ -4,18 +4,34 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sketchbridge</title>
+<script>
+  // Apply a saved light/dark choice before the page paints, so it never flashes the other theme.
+  try {
+    const t = localStorage.getItem("sketchbridge-theme");
+    if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  } catch {}
+</script>
 <style>
   :root {
     --bg: #f7f5f0; --card: #ffffff; --ink: #1f1d1a; --muted: #6b665e; --line: #e4dfd5;
     --accent: #2f6f5e; --accent-ink: #ffffff; --soft: #e8f1ee; --warn: #9a5b13; --warn-soft: #fbf0e1;
     --bubble: #f1eee8;
+    color-scheme: light;
   }
+  /* Dark: follows the system unless the learner picked a theme with the toggle. */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg: #161513; --card: #201f1c; --ink: #ece8e1; --muted: #a39d93; --line: #35322d;
       --accent: #6fbfa6; --accent-ink: #10201b; --soft: #1f2e29; --warn: #e3a865; --warn-soft: #33281b;
       --bubble: #2a2824;
+      color-scheme: dark;
     }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161513; --card: #201f1c; --ink: #ece8e1; --muted: #a39d93; --line: #35322d;
+    --accent: #6fbfa6; --accent-ink: #10201b; --soft: #1f2e29; --warn: #e3a865; --warn-soft: #33281b;
+    --bubble: #2a2824;
+    color-scheme: dark;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink);
@@ -25,6 +41,8 @@
   h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.01em; }
   .tag { color: var(--muted); margin: 4px 0 20px; }
   .spend { color: var(--muted); font-size: .9rem; font-variant-numeric: tabular-nums; }
+  .head-right { display: flex; align-items: center; gap: 12px; }
+  #themeBtn { padding: 6px 12px; font-size: .88rem; border-radius: 999px; background: transparent; color: var(--accent); }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
   form.ask { display: grid; grid-template-columns: 2fr 1fr auto; gap: 10px; align-items: end; }
   label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
@@ -132,7 +150,10 @@
 <main>
   <header>
     <h1>Sketchbridge</h1>
-    <span class="spend" id="spend">Spent this visit: $0.0000</span>
+    <div class="head-right">
+      <span class="spend" id="spend">Spent this visit: $0.0000</span>
+      <button type="button" id="themeBtn" aria-label="Switch theme"></button>
+    </div>
   </header>
   <p class="tag">Ask about a hard idea. Pick a picture analogy. Ask follow-ups until it clicks.</p>
 
@@ -256,6 +277,23 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
+
+// ---- Light / dark toggle (starts from the system setting; the choice is remembered) ----
+const darkQuery = matchMedia("(prefers-color-scheme: dark)");
+const themeNow = () => document.documentElement.dataset.theme || (darkQuery.matches ? "dark" : "light");
+function renderThemeBtn() {
+  const dark = themeNow() === "dark";
+  $("themeBtn").textContent = dark ? "☀️ Light" : "🌙 Dark";
+  $("themeBtn").title = dark ? "Switch to light mode" : "Switch to dark mode";
+}
+$("themeBtn").addEventListener("click", () => {
+  const next = themeNow() === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("sketchbridge-theme", next); } catch {}
+  renderThemeBtn();
+});
+darkQuery.addEventListener("change", renderThemeBtn);
+renderThemeBtn();
 const state = {
   concept: "", interest: "", shownDomains: [], spend: 0, demo: null,
   analogy: "", mapping: [], imageId: null, images: [], shownParts: [], history: [],
@@ -277,7 +315,7 @@ function addSpend(cost) {
 
 function setBusy(busy) {
   document.querySelectorAll("button, input, textarea").forEach((el) => {
-    if (!el.closest("#accessCard")) el.disabled = busy;
+    if (!el.closest("#accessCard") && el.id !== "themeBtn") el.disabled = busy;
   });
 }
 
