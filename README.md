@@ -8,7 +8,9 @@ next scene.
 Everything runs on **Meta's hosted models** through Meta Model API. Nothing runs locally: no model
 downloads, no GPU, no training.
 
-**▶ [Watch the demo video](https://drive.google.com/file/d/10cQzp1l6jx1U6yOEJzH_DPM6VP-6lxqg/view?usp=drive_link)**
+[![Sketchbridge in action: pick an analogy, see the picture, connect the dots, and zoom in on the next scene](documentations/media/demo.gif)](https://drive.google.com/file/d/10cQzp1l6jx1U6yOEJzH_DPM6VP-6lxqg/view?usp=drive_link)
+
+**▶ [Watch the full demo video](https://drive.google.com/file/d/10cQzp1l6jx1U6yOEJzH_DPM6VP-6lxqg/view?usp=drive_link)** (the preview above is sped up in places; click it for the full video)
 
 ## How it works
 
@@ -134,6 +136,7 @@ No Contributor variants, open-weight models, or local models were used.
 | `web/index.html` | The one-page app (no framework): question, domain, mic button, options, result card, explain-it-back check, follow-up chat |
 | `render.yaml` | Render Blueprint: free plan, one worker, deploy only after CI passes |
 | `.github/workflows/ci.yml` | GitHub Actions: runs the tests on every push and pull request |
+| `documentations/media/demo.gif` | The animated preview at the top of this README (cut from the demo recording) |
 | `tools/demo_video/` | Records the demo video from the real app (Playwright + ffmpeg) |
 | `tests/test_app.py` | Offline tests (no key, no cost): routes, demos, validation, access code, explain-it-back, progress streaming, connect the dots |
 | `cache/.gitkeep` | Keeps the `cache/` folder in git |
