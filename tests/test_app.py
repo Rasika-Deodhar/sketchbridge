@@ -150,3 +150,23 @@ def test_connect_route_checks(monkeypatch):
     assert client.post("/connect", json=body).status_code == 400  # unknown picture
     monkeypatch.setenv("ACCESS_CODE", "open-sesame")
     assert client.post("/connect", json=body).status_code == 401
+
+
+def test_chat_retries_gateway_timeout_with_low_effort(monkeypatch):
+    sent = []
+
+    def fake_post(path, body=None, files=None):
+        sent.append(dict(body))
+        if len(sent) == 1:
+            raise mc.MetaError("HTTP 502 from /chat/completions: upstream request failed", status=502)
+        return {"choices": [{"message": {"content": "OK"}}], "usage": {}}
+
+    monkeypatch.setattr(mc, "_post", fake_post)
+    assert mc.chat("hi").text == "OK"
+    assert "reasoning_effort" not in sent[0] and sent[1]["reasoning_effort"] == "low"
+
+    # Already at low effort, or another error: no retry.
+    sent.clear()
+    with pytest.raises(mc.MetaError):
+        mc.chat("hi", effort="low")
+    assert len(sent) == 1

@@ -132,3 +132,13 @@
 - Found: at default reasoning effort, connect on the backpropagation picture failed twice with HTTP 502
   after 30 s; low effort fixed it.
 
+## Step 10: Theme toggle, gateway-timeout fix, demo video
+
+- Light/dark toggle in the header (system setting by default, remembered per browser).
+- Found while recording the demo video: the explain-it-back check failed with HTTP 502 after 30 s.
+  Timed side by side on the same answer: default effort 30.0 s ($0.017), medium 17.0 s ($0.011),
+  low 15.9 s ($0.008), all grading 2 of 5 with the same misconception. The check now uses medium, and
+  every text call retries a 502 once at low effort. The real cost of a check is about $0.01, not $0.004.
+- Demo video recorded from the real app in Chromium (`tools/demo_video/`); waits for
+  live calls are shown sped up and marked "sped up".
+

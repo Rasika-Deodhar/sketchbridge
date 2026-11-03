@@ -71,4 +71,10 @@
 36. **No video or GIF generation for now.** The API has no video model (`GET /v1/models` lists Muse Spark,
     Muse Image, Muse Wonder (text), SAM 3.1 and Muse Voice Transcribe). The connect-the-dots walkthrough
     animates the existing picture instead. No model training is needed for any of these options.
+37. **Light/dark toggle on top of the system setting.** The page starts from the device's setting; the
+    toggle overrides it and is remembered per browser, applied before the page paints so it never flashes.
+38. **Retry a gateway timeout once at low effort.** Muse Spark sometimes thinks past the API gateway's
+    30 s limit (HTTP 502), seen on connect the dots and on the explain-it-back check. Every text call now
+    retries once with `reasoning_effort: low` (about 16 s) instead of failing, and the check uses
+    `medium` (17 s, same grades in a side-by-side test).
 

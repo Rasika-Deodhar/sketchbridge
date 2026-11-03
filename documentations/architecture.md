@@ -46,7 +46,7 @@ image, shown parts, last messages) and sends it with each follow-up, so the serv
 ## Explain it back (checking understanding)
 
 Under the picture, the learner explains the idea in their own words (typed, or spoken through
-`/transcribe`). One Muse Spark text call (`check_understanding`, about $0.004, no image) grades the
+`/transcribe`). One Muse Spark text call (`check_understanding`, medium reasoning effort, about $0.01, no image) grades the
 explanation against the mapping:
 
 | Field | Meaning |

@@ -157,6 +157,9 @@ def _sniff_mime(data: bytes) -> str:
 _EXT = {"image/webp": ".webp", "image/png": ".png", "image/jpeg": ".jpg"}
 
 
+GATEWAY_TIMEOUT_RETRY_EFFORT = "low"
+
+
 def _chat(content, schema: dict | None, schema_name: str, effort: str | None = None) -> Reply:
     body = {"model": TEXT_MODEL, "messages": [{"role": "user", "content": content}]}
     if effort:
@@ -164,7 +167,16 @@ def _chat(content, schema: dict | None, schema_name: str, effort: str | None = N
         body["reasoning_effort"] = effort
     if schema:
         body["response_format"] = _schema_format(schema, schema_name)
-    data = _post("/chat/completions", body)
+    try:
+        data = _post("/chat/completions", body)
+    except MetaError as exc:
+        # The API gateway gives up after about 30 s with HTTP 502 when the model thinks too long.
+        # Try once more with less thinking (about 16 s in tests) instead of failing the learner.
+        if exc.status != 502 or effort in ("low", "minimal"):
+            raise
+        print(f"  (chat timed out at the gateway; retrying once with reasoning_effort={GATEWAY_TIMEOUT_RETRY_EFFORT})")
+        body["reasoning_effort"] = GATEWAY_TIMEOUT_RETRY_EFFORT
+        data = _post("/chat/completions", body)
     try:
         text = data["choices"][0]["message"]["content"]
     except (KeyError, IndexError) as exc:
