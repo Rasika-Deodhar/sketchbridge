@@ -49,7 +49,14 @@
     wants mono 16-bit WAV. The page decodes and resamples with the Web Audio API, so the server needs no
     ffmpeg and no extra Python packages.
 27. **Voice fills the question box but does not submit it.** The learner can fix a misheard word first.
-28. **The Hugging Face Space downloads the code from GitHub at build time** instead of keeping a second
-    copy. The Space holds only a Dockerfile and its README, and "Factory rebuild" picks up new commits.
+28. ~~The Hugging Face Space downloads the code from GitHub at build time.~~ Replaced by decision 30:
+    Docker Spaces turned out not to be free for this account, so the Hugging Face files were removed.
 29. **Picture types are set explicitly** (`image/webp`). Slim Linux images, as used on Docker and Render,
     may not know `.webp` and would send pictures as generic data.
+30. **Host on Render's free plan, set up by `render.yaml`.** It runs Python directly (no Docker) and
+    redeploys from `main` by itself, so no deploy workflow or deploy tokens are needed.
+31. **GitHub Actions only tests; Render waits for it** (`autoDeployTrigger: checksPass`). A broken commit
+    is never deployed. The tests are offline, so CI needs no API key and costs nothing.
+32. **An optional access code on paid routes only.** The demos stay open so anyone can see the app, but
+    only people with the code can spend API credit. It is checked with a constant-time compare, and the
+    page remembers it per browser. Empty means no code, so local use is unchanged.

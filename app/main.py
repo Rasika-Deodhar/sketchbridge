@@ -7,17 +7,24 @@ Routes:
     POST /options           concept, interest -> 3 analogy options
     POST /explain           concept, option   -> analogy, mapping, checked image
     POST /followup          a question or request about the current picture
+    POST /check             the learner explains it back -> which mapping parts they got
     GET  /image/{image_id}  a saved picture from cache/
     GET  /demos             the 5 pre-built demo concepts (instant, no API calls)
     POST /transcribe        a short WAV recording (raw body) -> text, via Muse Voice Transcribe
+
+Access code: if ACCESS_CODE is set (environment or .env), every route that calls Meta (and so costs
+money) needs the header "X-Access-Code: <code>". The page, the demos and pictures stay open.
+Leave ACCESS_CODE empty to run without a code (local use).
 """
 
 from __future__ import annotations
 
+import hmac
 import json
+import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -73,7 +80,28 @@ class FollowupIn(BaseModel):
     history: list[Turn] = Field(default_factory=list, max_length=20)
 
 
+class CheckIn(BaseModel):
+    concept: str = Field(min_length=1, max_length=200)
+    analogy: str = Field(max_length=3000)
+    mapping: list[MappingPair] = Field(min_length=1, max_length=10)
+    explanation: str = Field(min_length=1, max_length=2000)
+
+
 # ------------------------------------------------------------ helpers
+
+ACCESS_DENIED = "access_code"  # the page looks for this detail and asks for the code
+
+
+def require_access_code(x_access_code: str = Header(default="")) -> None:
+    """Refuse paid routes without the right code (only when ACCESS_CODE is set)."""
+    mc._load_dotenv()
+    expected = os.environ.get("ACCESS_CODE", "").strip()
+    if expected and not hmac.compare_digest(x_access_code.strip().encode(), expected.encode()):
+        raise HTTPException(401, ACCESS_DENIED)
+
+
+PAID = [Depends(require_access_code)]
+
 
 
 def _run(label: str, fn):
@@ -104,7 +132,7 @@ def index():
     return FileResponse(WEB_DIR / "index.html")
 
 
-@app.post("/options")
+@app.post("/options", dependencies=PAID)
 def options(body: OptionsIn):
     def go():
         opts, cost = pipeline.get_options(body.concept, body.interest, body.avoid_domains)
@@ -113,12 +141,12 @@ def options(body: OptionsIn):
     return _run("options", go)
 
 
-@app.post("/explain")
+@app.post("/explain", dependencies=PAID)
 def explain(body: ExplainIn):
     return _public(_run("explain", lambda: pipeline.explain(body.concept, body.option.model_dump())))
 
 
-@app.post("/followup")
+@app.post("/followup", dependencies=PAID)
 def followup(body: FollowupIn):
     return _public(_run("followup", lambda: pipeline.followup(
         concept=body.concept,
@@ -130,6 +158,16 @@ def followup(body: FollowupIn):
         shown_parts=body.shown_parts,
         history=[t.model_dump() for t in body.history],
     )))
+
+
+@app.post("/check", dependencies=PAID)
+def check(body: CheckIn):
+    return _run("check", lambda: pipeline.check_understanding(
+        concept=body.concept,
+        analogy=body.analogy,
+        mapping=[m.model_dump() for m in body.mapping],
+        explanation=body.explanation,
+    ))
 
 
 IMAGE_TYPES = {".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg"}
@@ -145,6 +183,12 @@ def image(image_id: str):
     return FileResponse(path, media_type=IMAGE_TYPES.get(path.suffix, "application/octet-stream"))
 
 
+@app.get("/health")
+def health():
+    """For the host's health check: no API calls."""
+    return {"ok": True}
+
+
 @app.get("/demos")
 def demos():
     """Pre-built results from `python -m app.build_demo` (empty list if not built)."""
@@ -152,7 +196,7 @@ def demos():
     return json.loads(manifest.read_text()) if manifest.exists() else []
 
 
-@app.post("/transcribe")
+@app.post("/transcribe", dependencies=PAID)
 async def transcribe(request: Request):
     """Speech to text for the question box. The browser sends a mono 16 kHz WAV as the body."""
     if int(request.headers.get("content-length") or 0) > MAX_UPLOAD_BYTES:

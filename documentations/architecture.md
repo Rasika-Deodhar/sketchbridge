@@ -43,6 +43,23 @@ New pictures send the current picture as a reference (`input_image`), so style a
 the same across the series. The browser keeps the conversation state (analogy, mapping, current
 image, shown parts, last messages) and sends it with each follow-up, so the server stores nothing.
 
+## Explain it back (checking understanding)
+
+Under the picture, the learner explains the idea in their own words (typed, or spoken through
+`/transcribe`). One Muse Spark text call (`check_understanding`, about $0.004, no image) grades the
+explanation against the mapping:
+
+| Field | Meaning |
+| --- | --- |
+| `parts` | one entry per mapping part, in mapping order: `got`, `partly` or `missed`, with a short note |
+| `misconception` | a wrong idea the learner stated, such as taking the analogy literally ("" if none) |
+| `feedback` | 2 to 3 encouraging sentences: what they got, then the one thing to fix |
+| `focus_part` | the most important gap; the page offers a `next_scene` follow-up aimed at it |
+
+The server rebuilds `parts` in mapping order, so a skipped or repeated index from the model cannot
+misalign the page. The page shows the score of the previous try next to the new one, so the learner
+sees progress. Guard: 10 checks per concept.
+
 ## Web routes (app/main.py)
 
 | Route | Does |
@@ -51,6 +68,8 @@ image, shown parts, last messages) and sends it with each follow-up, so the serv
 | `POST /options` | step 0 |
 | `POST /explain` | steps 1 to 3 |
 | `POST /followup` | answer / simplify / edit / next_scene |
+| `POST /check` | the learner's own explanation -> which mapping parts they got, misconception, feedback |
 | `GET /image/{id}` | a picture from `cache/` (name checked against a strict pattern) |
 | `GET /demos` | the 5 cached demos |
+| `GET /health` | `{"ok": true}` for Render's health check (no API calls) |
 | `POST /transcribe` | a short WAV recording -> text (Muse Voice Transcribe) |

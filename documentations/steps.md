@@ -86,3 +86,31 @@
   all commands, typical costs, and a "Built during the hackathon" section listing every file,
   the 3 Meta models (with IDs and prices), and the dates: October 26 to November 4, 2026
   (commits from October 31 to November 1, 2026).
+
+## Step 7: Explain-it-back check
+
+- `pipeline.check_understanding(concept, analogy, mapping, explanation)`: one Muse Spark text call
+  grades the learner's own explanation part by part (`got` / `partly` / `missed`), names any
+  misconception, gives short feedback, and picks the most important gap. No image, about $0.004.
+- `POST /check` in `main.py`. Guard: 10 checks per concept.
+- Page: a "Check yourself: explain it back" panel under the picture, with its own 🎤 button
+  (the voice code now fills whichever box it belongs to). The result lists every part with ✓ ~ ✗,
+  shows the last try's score for comparison, and offers "Show me a scene about …", which reuses the
+  `next_scene` follow-up aimed at the gap.
+- Tests: in Chromium with the Meta calls mocked, including a model reply with a skipped index, a
+  repeated index and a focus on a part already understood (the server corrects all three). The panel
+  fits a 390 px phone screen. Not yet tested against the live API.
+
+## Step 8: Deployment on Render, CI, and an access code
+
+- Removed `deploy/huggingface/`: Docker Spaces are not free for this account.
+- `render.yaml`: a Render Blueprint (free plan, Python 3.11, one worker, `/health` check). It deploys
+  `main` only after CI passes (`autoDeployTrigger: checksPass`). `META_API_KEY` and `ACCESS_CODE` are
+  entered in Render's dashboard.
+- `.github/workflows/ci.yml` + `tests/test_app.py`: 8 offline tests (no key, no cost).
+- Access code: `ACCESS_CODE` protects the routes that call Meta. The page asks for the code once, remembers
+  it in that browser, and retries the request. Demos and pictures stay open. `GET /health` added.
+- Tests: all 8 pass locally. In Chromium with the Meta calls mocked: demos load with no code; a paid action
+  shows the code form; a wrong code is refused with a clear message; the right code goes through and is
+  remembered after a reload; Cancel shows a message and leaves the page usable.
+- Not tested: a real deploy on Render, and the workflow running on GitHub (it runs on the next push).
