@@ -16,6 +16,9 @@ so the cookbook was the source.
 | Image input | content part `{"type": "image_url", "image_url": {"url": "data:image/...;base64,..."}}`, user messages only |
 | Image model | `muse-image-1.0` on `POST /responses`, body `{"model", "input": "<prompt>"}` |
 | Image output | `output` list; the item with `type == "image_generation_call"` has base64 `result` (WebP in the examples) |
+| Reasoning effort | chat completions accept `reasoning_effort`: `minimal` < `low` < `medium` < `high` (cookbook recipe `06_reasoning_tokens`). Lower is faster and cheaper; used as `low` for connect the dots |
+| Gateway time limit | a request that takes more than about 30 s returns HTTP 502 "upstream request failed" (seen on long vision answers) |
+| Models listed by `GET /v1/models` (November 2026) | `muse-spark-1.3`, `muse-spark-1.2`, `muse-spark-1.1`, Contributor variants, `muse-image-1.0`, `muse-wonder-1.0` (a text model), `sam-3.1` (segmentation), `muse-voice-transcribe-1.0`. No video model |
 | Speech to text | `muse-voice-transcribe-1.0`, `POST /v1/asr/transcribe`, multipart: `request` (JSON: `model`, `mode`, `audioEncoding: "WAV"`) + `audio` (mono 16-bit WAV, 16 or 24 kHz); reply has `transcript` and `audioDurationMs`. Limits: 10 min / 32 MB |
 
 ## Prices used for cost estimates

@@ -89,3 +89,64 @@ def test_check_understanding_all_got(monkeypatch):
     monkeypatch.setattr(mc, "chat", lambda *a, **k: mc.Reply(text=json.dumps(reply)))
     r = pipeline.check_understanding("test-concept-b", "a restaurant", MAPPING, "it goes back from the mistake")
     assert r["understood"] and r["focus_part"] == ""
+
+
+def _fake_draw(prompt, out_path_without_ext, reference_image=None):
+    path = out_path_without_ext + ".webp"
+    with open(path, "wb") as f:
+        f.write(b"RIFF\x00\x00\x00\x00WEBPVP8 ")
+    return mc.Reply(image_path=path, cost_usd=0.01)
+
+
+def test_explain_streams_progress_then_result(monkeypatch, tmp_path):
+    analogy = {"analogy": "A kitchen.", "image_prompt": "a kitchen",
+               "mapping": [{"concept_part": "error", "analogy_part": "salty soup"}]}
+    checks = iter([{"pass": False, "fixes": ["show the soup"]}, {"pass": True, "fixes": []}])
+    monkeypatch.setattr(pipeline, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(mc, "chat", lambda *a, **k: mc.Reply(text=json.dumps(analogy)))
+    monkeypatch.setattr(mc, "chat_with_image", lambda *a, **k: mc.Reply(text=json.dumps(next(checks))))
+    monkeypatch.setattr(mc, "draw", _fake_draw)
+    body = {"concept": "stream test", "option": {"id": "1", "domain": "kitchen", "one_line": "x"}}
+
+    r = client.post("/explain", json=body, headers={"Accept": "application/x-ndjson"})
+    assert r.headers["content-type"].startswith("application/x-ndjson")
+    events = [json.loads(line) for line in r.text.splitlines() if line.strip()]
+    stages = [e["stage"] for e in events if e["type"] == "progress"]
+    assert stages == ["analogy", "draw", "check", "redraw", "recheck"]
+    assert events[-1]["type"] == "result" and events[-1]["attempts"] == 2
+    assert "image_path" not in events[-1]  # local paths never reach the browser
+
+
+def test_explain_plain_json_and_stream_errors(monkeypatch):
+    def boom(*a, **k):
+        raise mc.MetaError("HTTP 502 from /chat/completions: upstream request failed", status=502)
+    monkeypatch.setattr(mc, "chat", boom)
+    body = {"concept": "error test", "option": {"id": "1", "domain": "kitchen", "one_line": "x"}}
+    assert client.post("/explain", json=body).status_code == 502  # no Accept header: plain JSON
+    r = client.post("/explain", json=body, headers={"Accept": "application/x-ndjson"})
+    last = json.loads(r.text.strip().splitlines()[-1])
+    assert last["type"] == "error" and last["status"] == 502
+
+
+def test_connect_dots_repairs_model_reply(monkeypatch):
+    reply = {"steps": [
+        {"index": 3, "visible": True, "x": 900, "y": 100, "says": "third first"},
+        {"index": 1, "visible": True, "x": 1500, "y": -20, "says": "off the grid"},  # clamped
+        {"index": 1, "visible": False, "x": 0, "y": 0, "says": "duplicate, ignored"},
+        {"index": 7, "visible": True, "x": 1, "y": 1, "says": "no such part"},
+    ], "summary": "It all fits."}  # part 2 missing -> added at the end
+    monkeypatch.setattr(mc, "chat_with_image", lambda *a, **k: mc.Reply(text=json.dumps(reply), cost_usd=0.01))
+    demo = client.get("/demos").json()[0]["result"]
+    r = pipeline.connect_dots("connect-test", "a restaurant", MAPPING, demo["image_id"])
+    assert [s["concept_part"] for s in r["steps"]] == ["backward pass", "prediction", "error"]
+    assert [s["step"] for s in r["steps"]] == [1, 2, 3]
+    assert (r["steps"][0]["x"], r["steps"][0]["y"]) == (0.9, 0.1)
+    assert (r["steps"][1]["x"], r["steps"][1]["y"]) == (1.0, 0.0)
+    assert r["steps"][2]["visible"] is False and r["summary"] == "It all fits."
+
+
+def test_connect_route_checks(monkeypatch):
+    body = {"concept": "c", "analogy": "a", "mapping": MAPPING, "image_id": "missing.webp"}
+    assert client.post("/connect", json=body).status_code == 400  # unknown picture
+    monkeypatch.setenv("ACCESS_CODE", "open-sesame")
+    assert client.post("/connect", json=body).status_code == 401

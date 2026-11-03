@@ -60,3 +60,15 @@
 32. **An optional access code on paid routes only.** The demos stay open so anyone can see the app, but
     only people with the code can spend API credit. It is checked with a constant-time compare, and the
     page remembers it per browser. Empty means no code, so local use is unchanged.
+33. **Real progress stages, streamed as JSON lines.** A fake timer would lie when a redraw happens. The
+    server already knows the stage, so it streams it. Plain JSON stays the default for other callers.
+34. **Connect the dots uses grounding, not a new picture.** One vision call places each part on the
+    existing picture, so the learner sees how the parts relate in the scene they already know. It costs
+    about a cent, makes no image, and plays instantly on the demos.
+35. **Low reasoning effort for connect the dots.** At the default effort, busy pictures ran past the
+    API gateway's 30 s limit (HTTP 502). Low effort finished in about 17 s, and the positions were still
+    good in a visual check on all 5 demos and a live concept.
+36. **No video or GIF generation for now.** The API has no video model (`GET /v1/models` lists Muse Spark,
+    Muse Image, Muse Wonder (text), SAM 3.1 and Muse Voice Transcribe). The connect-the-dots walkthrough
+    animates the existing picture instead. No model training is needed for any of these options.
+

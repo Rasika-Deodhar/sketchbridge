@@ -8,6 +8,7 @@ Routes:
     POST /explain           concept, option   -> analogy, mapping, checked image
     POST /followup          a question or request about the current picture
     POST /check             the learner explains it back -> which mapping parts they got
+    POST /connect           connect the dots: where each part is in the picture, in process order
     GET  /image/{image_id}  a saved picture from cache/
     GET  /demos             the 5 pre-built demo concepts (instant, no API calls)
     POST /transcribe        a short WAV recording (raw body) -> text, via Muse Voice Transcribe
@@ -15,6 +16,11 @@ Routes:
 Access code: if ACCESS_CODE is set (environment or .env), every route that calls Meta (and so costs
 money) needs the header "X-Access-Code: <code>". The page, the demos and pictures stay open.
 Leave ACCESS_CODE empty to run without a code (local use).
+
+Progress: /explain and /followup can take up to a minute. If the request sends
+"Accept: application/x-ndjson", the reply is streamed as one JSON object per line:
+{"type": "progress", "stage": "draw"} ... then {"type": "result", ...} or {"type": "error", ...}.
+Without that header they return plain JSON as before.
 """
 
 from __future__ import annotations
@@ -22,11 +28,14 @@ from __future__ import annotations
 import hmac
 import json
 import os
+import queue
+import threading
+import traceback
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from app import meta_client as mc
@@ -87,6 +96,14 @@ class CheckIn(BaseModel):
     explanation: str = Field(min_length=1, max_length=2000)
 
 
+class ConnectIn(BaseModel):
+    concept: str = Field(min_length=1, max_length=200)
+    analogy: str = Field(max_length=3000)
+    mapping: list[MappingPair] = Field(min_length=1, max_length=10)
+    image_id: str = Field(max_length=100)
+    scenes: list[str] = Field(default_factory=list, max_length=20)
+
+
 # ------------------------------------------------------------ helpers
 
 ACCESS_DENIED = "access_code"  # the page looks for this detail and asks for the code
@@ -124,6 +141,36 @@ def _public(result: dict) -> dict:
     return {k: v for k, v in result.items() if k != "image_path"}
 
 
+def _respond(request: Request, label: str, fn):
+    """Run fn(progress) and return its result: streamed with progress if the page asks, else plain JSON."""
+    if "application/x-ndjson" not in request.headers.get("accept", ""):
+        return _public(_run(label, lambda: fn(None)))
+
+    events: queue.Queue = queue.Queue()
+
+    def work():
+        try:
+            result = _run(label, lambda: fn(lambda stage: events.put({"type": "progress", "stage": stage})))
+            events.put({"type": "result", **_public(result)})
+        except HTTPException as exc:
+            events.put({"type": "error", "status": exc.status_code, "detail": exc.detail})
+        except Exception:  # noqa: BLE001 - report, never leave the page waiting
+            traceback.print_exc()
+            events.put({"type": "error", "status": 500, "detail": "Server error. Please try again."})
+        finally:
+            events.put(None)
+
+    # The Meta calls block, so they run on their own thread while this reply streams the events.
+    threading.Thread(target=work, daemon=True).start()
+
+    def lines():
+        while (event := events.get()) is not None:
+            yield json.dumps(event) + "\n"
+
+    return StreamingResponse(lines(), media_type="application/x-ndjson",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 # ------------------------------------------------------------ routes
 
 
@@ -142,13 +189,14 @@ def options(body: OptionsIn):
 
 
 @app.post("/explain", dependencies=PAID)
-def explain(body: ExplainIn):
-    return _public(_run("explain", lambda: pipeline.explain(body.concept, body.option.model_dump())))
+def explain(body: ExplainIn, request: Request):
+    return _respond(request, "explain",
+                    lambda progress: pipeline.explain(body.concept, body.option.model_dump(), progress))
 
 
 @app.post("/followup", dependencies=PAID)
-def followup(body: FollowupIn):
-    return _public(_run("followup", lambda: pipeline.followup(
+def followup(body: FollowupIn, request: Request):
+    return _respond(request, "followup", lambda progress: pipeline.followup(
         concept=body.concept,
         analogy=body.analogy,
         mapping=[m.model_dump() for m in body.mapping],
@@ -157,7 +205,8 @@ def followup(body: FollowupIn):
         action=body.action,
         shown_parts=body.shown_parts,
         history=[t.model_dump() for t in body.history],
-    )))
+        progress=progress,
+    ))
 
 
 @app.post("/check", dependencies=PAID)
@@ -167,6 +216,17 @@ def check(body: CheckIn):
         analogy=body.analogy,
         mapping=[m.model_dump() for m in body.mapping],
         explanation=body.explanation,
+    ))
+
+
+@app.post("/connect", dependencies=PAID)
+def connect(body: ConnectIn):
+    return _run("connect", lambda: pipeline.connect_dots(
+        concept=body.concept,
+        analogy=body.analogy,
+        mapping=[m.model_dump() for m in body.mapping],
+        image_id=body.image_id,
+        scenes=body.scenes,
     ))
 
 
