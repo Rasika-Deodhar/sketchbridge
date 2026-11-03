@@ -8,6 +8,8 @@ next scene.
 Everything runs on **Meta's hosted models** through Meta Model API. Nothing runs locally: no model
 downloads, no GPU, no training.
 
+**▶ [Watch the demo video](https://drive.google.com/file/d/10cQzp1l6jx1U6yOEJzH_DPM6VP-6lxqg/view?usp=drive_link)**
+
 ## How it works
 
 ```mermaid
@@ -102,7 +104,7 @@ Guards: at most 2 images per request, 5 "Try another" rounds per concept, 15 fol
 ## Built during the hackathon
 
 Everything in this repository was built new during the hackathon, **October 26 to November 4, 2026**
-(commits from October 31 to November 1, 2026).
+(commits from October 31 to November 3, 2026).
 
 ### Models used (all Meta-hosted, via Meta Model API)
 
