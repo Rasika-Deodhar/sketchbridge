@@ -10,7 +10,7 @@ downloads, no GPU, no training.
 
 [![Sketchbridge in action: pick an analogy, see the picture, connect the dots, and zoom in on the next scene](documentations/media/demo.gif)](https://drive.google.com/file/d/10cQzp1l6jx1U6yOEJzH_DPM6VP-6lxqg/view?usp=drive_link)
 
-**▶ [Watch the full demo video](https://drive.google.com/file/d/10cQzp1l6jx1U6yOEJzH_DPM6VP-6lxqg/view?usp=drive_link)** (the preview above is sped up in places; click it for the full video)
+**▶ [Watch the full demo video with explanation](https://drive.google.com/file/d/10cQzp1l6jx1U6yOEJzH_DPM6VP-6lxqg/view?usp=drive_link)**
 
 ## How it works
 
